@@ -1,12 +1,10 @@
 const deckQueue = require('../utils/deckQueue');
 const Deck = require('../models/deckSchema');
 const logger = require('../config/logger');
-const FaceToFaceProcessor = require('./faceToFaceProcessor');
-const TapsProcessor = require('./tapsProcessor');
+const ProcessorRegistry = require('../utils/processorRegistry');
 const { createBatches } = require('../utils/arrayUtils');
 
-const f2fProcessor = new FaceToFaceProcessor();
-const tapsProcessor = new TapsProcessor();
+const processorRegistry = new ProcessorRegistry();
 
 deckQueue.process('processDeck', async (job) => {
   try {
@@ -28,64 +26,60 @@ deckQueue.process('processDeck', async (job) => {
     for (const batch of batches) {
       logger.info(`Processing batch ${batch.batchNumber}/${batch.totalBatches} (${batch.size} cards)`);
       
-      // Process batch with both processors in parallel
-      const [f2fResults, tapsResults] = await Promise.all([
-        f2fProcessor.processCards(batch.items),
-        tapsProcessor.processCards(batch.items)
-      ]);
+      // Process batch with all registered processors in parallel
+      const processors = processorRegistry.getProcessors();
+      const results = await Promise.all(
+        processors.map(processor => processor.processCards(batch.items))
+      );
+
+      // Transpose results so we get arrays per card instead of arrays per processor
+      const cardResults = [];
+      for (let i = 0; i < batch.items.length; i++) {
+        cardResults[i] = results.map(processorResults => processorResults[i]);
+      }
       
       // Update each card in the batch with pricing data
       for (let i = 0; i < batch.items.length; i++) {
         const card = batch.items[i];
-        const f2fResult = f2fResults[i];
-        const tapsResult = tapsResults[i];
         
-        // Store CardResult objects directly - no need to convert
+        // Store CardResult objects directly
         card.pricing = {
-          results: [f2fResult, tapsResult],
+          results: cardResults[i],
           processedAt: new Date()
         };
-        
-        // Log the results
-        const f2fPrice = f2fResult.found ? f2fResult.getPriceFormatted() : 'Not found';
-        const tapsPrice = tapsResult.found ? tapsResult.getPriceFormatted() : 'Not found';
-        const f2fStock = f2fResult.inStock ? 'In Stock' : 'Out of Stock';
-        const tapsStock = tapsResult.inStock ? 'In Stock' : 'Out of Stock';
-        
-        logger.info(`${card.Quantity}x ${card.Name}: F2F(${f2fPrice}, ${f2fStock}) Taps(${tapsPrice}, ${tapsStock})`);
       }
       
       // Save the deck with updated pricing for this batch
       await deck.save();
       logger.info(`Batch ${batch.batchNumber} completed and saved`);
-      
-      // Small delay between batches to be respectful to APIs
-      if (batch.batchNumber < batch.totalBatches) {
-        logger.info('Waiting 2 seconds before next batch...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
     }
     
     // Update deck status
     deck.Importing = false;
     await deck.save();
     
-    // Count successful results across all cards
-    const f2fFoundCount = deck.Cards.filter(c => 
-      c.pricing?.results?.some(r => r.source === 'facetoface' && r.found)
-    ).length;
-    const tapsFoundCount = deck.Cards.filter(c => 
-      c.pricing?.results?.some(r => r.source === 'taps' && r.found)
-    ).length;
+    // Count successful results across all cards by source
+    const processors = processorRegistry.getProcessors();
+    const resultCounts = {};
     
-    logger.info(`Deck ${deckId} processing completed: ${f2fFoundCount} found on F2F, ${tapsFoundCount} found on Taps`);
+    processors.forEach(processor => {
+      const source = processor.source;
+      resultCounts[source] = deck.Cards.filter(c => 
+        c.pricing?.results?.some(r => r.source === source && r.found)
+      ).length;
+    });
+    
+    const countSummary = Object.entries(resultCounts)
+      .map(([source, count]) => `${count} found on ${source}`)
+      .join(', ');
+    
+    logger.info(`Deck ${deckId} processing completed: ${countSummary}`);
     return { 
       success: true, 
       deckId, 
       cardsProcessed: deck.Cards.length,
       batchesProcessed: batches.length,
-      faceToFaceResults: f2fFoundCount,
-      tapsResults: tapsFoundCount
+      processorResults: resultCounts
     };
     
   } catch (error) {
