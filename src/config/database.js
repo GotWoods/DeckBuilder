@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
+const logger = require('./logger');
 
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/deckbuilder');
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    logger.info(`Connected to MongoDB at ${conn.connection.host}`);
   } catch (error) {
-    console.error('Error connecting to MongoDB:', error.message);
+    logger.error('Error connecting to MongoDB:', error.message);
     process.exit(1);
   }
 };

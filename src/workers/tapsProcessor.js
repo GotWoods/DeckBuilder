@@ -1,6 +1,7 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../models/cardResult');
+const logger = require('../config/logger');
 
 /*
 Example of script tag data from Taps Games product pages:
@@ -109,7 +110,7 @@ class TapsProcessor extends BaseProcessor {
         name: cardName
       };
       
-      console.log(`Searching Taps for: ${cardName}`);
+      logger.debug(`Searching Taps for: ${cardName}`);
       
       const response = await axios.get(this.baseUrl, {
         params,
@@ -121,7 +122,7 @@ class TapsProcessor extends BaseProcessor {
 
       return this.parseResponse(response.data, cardName);
     } catch (error) {
-      console.error(`Error searching Taps for card "${cardName}":`, error.message);
+      logger.error(`Error searching Taps for card "${cardName}":`, error.message);
       return {
         cardName,
         found: false,
@@ -178,7 +179,7 @@ class TapsProcessor extends BaseProcessor {
         searchedAt: new Date()
       };
     } catch (parseError) {
-      console.error(`Error parsing Taps response for "${cardName}":`, parseError.message);
+      logger.error(`Error parsing Taps response for "${cardName}":`, parseError.message);
       return {
         cardName,
         found: false,
@@ -190,7 +191,7 @@ class TapsProcessor extends BaseProcessor {
 
   async parseProductPage(url) {
     try {
-      console.log(`Fetching product page: ${url}`);
+      logger.debug(`Fetching product page: ${url}`);
       
       const response = await axios.get(url, {
         timeout: 10000,
@@ -201,7 +202,7 @@ class TapsProcessor extends BaseProcessor {
 
       return this.extractProductData(response.data);
     } catch (error) {
-      console.error(`Error fetching product page ${url}:`, error.message);
+      logger.error(`Error fetching product page ${url}:`, error.message);
       return null;
     }
   }
@@ -258,7 +259,7 @@ class TapsProcessor extends BaseProcessor {
         }))
       };
     } catch (error) {
-      console.error('Error extracting product data from HTML:', error.message);
+      logger.error('Error extracting product data from HTML:', error.message);
       return null;
     }
   }
@@ -289,7 +290,7 @@ class TapsProcessor extends BaseProcessor {
 
       return null;
     } catch (error) {
-      console.error('Error extracting live inventory:', error.message);
+      logger.error('Error extracting live inventory:', error.message);
       return null;
     }
   }
@@ -298,7 +299,7 @@ class TapsProcessor extends BaseProcessor {
     const results = [];
     
     for (const card of cards) {
-      console.log(`Processing ${card.Quantity}x ${card.Name} with Taps`);
+      logger.debug(`Processing ${card.Quantity}x ${card.Name} with Taps`);
       
       const priceData = await this.searchCard(card.Name);
       

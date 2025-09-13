@@ -1,17 +1,21 @@
-require('dotenv').config();
+import dotenv from 'dotenv';
+import express from 'express';
+import bodyParser from 'body-parser';
+import connectDB from './config/database';
+import logger from './config/logger';
+import importRoutes from './routes/importRoutes';
+import deckQueue from './utils/deckQueue';
 
-const express = require('express');
-const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
-const connectDB = require('./config/database');
-const logger = require('./config/logger');
-const importRoutes = require('./routes/importRoutes');
-const deckQueue = require('./utils/deckQueue');
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 connectDB();
+
+// Initialize Redis/Bull queue connection
+// The queue events are already set up in deckQueue.js, just ensure it's loaded
+logger.info('Initializing queue system...');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -23,7 +27,7 @@ const server = app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-const gracefulShutdown = async (signal) => {
+const gracefulShutdown = async (signal: string): Promise<void> => {
   logger.info(`${signal} received. Starting graceful shutdown...`);
   
   try {
@@ -33,7 +37,7 @@ const gracefulShutdown = async (signal) => {
     });
     
     // Close database connection
-    await mongoose.connection.close();
+    await require('mongoose').connection.close();
     logger.info('MongoDB connection closed');
     
     // Close job queue

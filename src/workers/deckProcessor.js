@@ -88,14 +88,4 @@ deckQueue.process('processDeck', async (job) => {
   }
 });
 
-// Handle job completion
-deckQueue.on('completed', (job, result) => {
-  logger.info(`Job ${job.id} completed:`, result);
-});
-
-// Handle job failures
-deckQueue.on('failed', (job, err) => {
-  logger.error(`Job ${job.id} failed:`, err.message);
-});
-
 logger.info('Deck processor worker started');

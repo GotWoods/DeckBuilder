@@ -1,6 +1,7 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../models/cardResult');
+const logger = require('../config/logger');
 
 class FaceToFaceProcessor extends BaseProcessor {
   constructor() {
@@ -20,7 +21,7 @@ class FaceToFaceProcessor extends BaseProcessor {
       const encodedCardName = encodeURIComponent(cardName);
       const url = `${this.baseUrl}/Game%20Type/Magic:%20The%20Gathering/withFacets/false/pageSize/6/page/1/minimum_price/0.01/keyword/${encodedCardName}`;
       
-      console.log(`Searching Face to Face for: ${cardName}`);
+      logger.debug(`Searching Face to Face for: ${cardName}`);
       
       const response = await axios.get(url, {
         timeout: 10000,
@@ -31,7 +32,7 @@ class FaceToFaceProcessor extends BaseProcessor {
 
       return this.parseResponse(response.data, cardName);
     } catch (error) {
-      console.error(`Error searching for card "${cardName}":`, error.message);
+      logger.error(`Error searching for card "${cardName}":`, error.message);
       return {
         cardName,
         found: false,
@@ -88,7 +89,7 @@ class FaceToFaceProcessor extends BaseProcessor {
         searchedAt: new Date()
       };
     } catch (parseError) {
-      console.error(`Error parsing response for "${cardName}":`, parseError.message);
+      logger.error(`Error parsing response for "${cardName}":`, parseError.message);
       return {
         cardName,
         found: false,
@@ -102,7 +103,7 @@ class FaceToFaceProcessor extends BaseProcessor {
     const results = [];
     
     for (const card of cards) {
-      console.log(`Processing ${card.Quantity}x ${card.Name}`);
+      logger.debug(`Processing ${card.Quantity}x ${card.Name}`);
       
       const priceData = await this.searchCard(card.Name);
       
