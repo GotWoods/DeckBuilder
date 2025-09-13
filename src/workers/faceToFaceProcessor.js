@@ -1,7 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../models/cardResult');
-const logger = require('../config/logger');
 
 class FaceToFaceProcessor extends BaseProcessor {
   constructor() {
@@ -21,7 +20,7 @@ class FaceToFaceProcessor extends BaseProcessor {
       const encodedCardName = encodeURIComponent(cardName);
       const url = `${this.baseUrl}/Game%20Type/Magic:%20The%20Gathering/withFacets/false/pageSize/6/page/1/minimum_price/0.01/keyword/${encodedCardName}`;
       
-      logger.debug(`Searching Face to Face for: ${cardName}`);
+      this.logger.debug(`Searching Face to Face for: ${cardName}`);
       
       const response = await axios.get(url, {
         timeout: 10000,
@@ -32,7 +31,7 @@ class FaceToFaceProcessor extends BaseProcessor {
 
       return this.parseResponse(response.data, cardName);
     } catch (error) {
-      logger.error(`Error searching for card "${cardName}":`, error.message);
+      this.logger.error(`Error searching for card "${cardName}":`, error.message);
       return {
         cardName,
         found: false,
@@ -48,6 +47,7 @@ class FaceToFaceProcessor extends BaseProcessor {
       const hits = data.hits?.hits || [];
       
       if (!hits.length) {
+        this.logger.info(`Found 0 results for "${cardName}"`);
         return {
           cardName,
           found: false,
@@ -62,7 +62,7 @@ class FaceToFaceProcessor extends BaseProcessor {
         const variants = source.variants || [];
         
         variants.forEach(variant => {
-          prices.push({
+          const priceResult = {
             name: source.title,
             price: parseFloat(variant.price),
             sellPrice: parseFloat(variant.sellPrice),
@@ -77,9 +77,14 @@ class FaceToFaceProcessor extends BaseProcessor {
             sku: variant.sku,
             imageUrl: variant.image?.url,
             productHandle: source.handle
-          });
+          };
+          
+          this.logger.debug(`Face to Face result for "${cardName}":`, priceResult);
+          prices.push(priceResult);
         });
       });
+
+      this.logger.info(`Found ${prices.length} price results for "${cardName}" (${data.hits?.total?.value || 0} total hits)`);
 
       return {
         cardName,
@@ -89,7 +94,7 @@ class FaceToFaceProcessor extends BaseProcessor {
         searchedAt: new Date()
       };
     } catch (parseError) {
-      logger.error(`Error parsing response for "${cardName}":`, parseError.message);
+      this.logger.error(`Error parsing response for "${cardName}":`, parseError.message);
       return {
         cardName,
         found: false,
@@ -103,7 +108,7 @@ class FaceToFaceProcessor extends BaseProcessor {
     const results = [];
     
     for (const card of cards) {
-      logger.debug(`Processing ${card.Quantity}x ${card.Name}`);
+      this.logger.debug(`Processing ${card.Quantity}x ${card.Name}`);
       
       const priceData = await this.searchCard(card.Name);
       

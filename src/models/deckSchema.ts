@@ -37,4 +37,7 @@ deckSchema.methods.import = function(this: IDeck, importData: string): void {
   });
 };
 
-export default mongoose.model<IDeck>('Deck', deckSchema);
+const DeckModel = mongoose.model<IDeck>('Deck', deckSchema);
+
+export default DeckModel;
+module.exports = DeckModel;

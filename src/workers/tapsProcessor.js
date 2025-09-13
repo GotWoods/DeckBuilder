@@ -1,7 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../models/cardResult');
-const logger = require('../config/logger');
 
 /*
 Example of script tag data from Taps Games product pages:
@@ -110,7 +109,7 @@ class TapsProcessor extends BaseProcessor {
         name: cardName
       };
       
-      logger.debug(`Searching Taps for: ${cardName}`);
+      this.logger.debug(`Searching Taps for: ${cardName}`);
       
       const response = await axios.get(this.baseUrl, {
         params,
@@ -122,7 +121,7 @@ class TapsProcessor extends BaseProcessor {
 
       return this.parseResponse(response.data, cardName);
     } catch (error) {
-      logger.error(`Error searching Taps for card "${cardName}":`, error.message);
+      this.logger.error(`Error searching Taps for card "${cardName}":`, error.message);
       return {
         cardName,
         found: false,
@@ -138,6 +137,7 @@ class TapsProcessor extends BaseProcessor {
       const products = data.products || [];
       
       if (!products.length) {
+        this.logger.info(`Found 0 results for "${cardName}"`);
         return {
           cardName,
           found: false,
@@ -149,25 +149,32 @@ class TapsProcessor extends BaseProcessor {
       //"price": 3.22,
       //"url": "https://tapsgames.com/products/lightning-bolt-anthologies",
  
-      const prices = products.map(item => ({
-        id: item.id,
-        name: item.name,
-        displayName: item.display_name,
-        price: parseFloat(item.price),
-        priceText: item.price_text,
-        usdPrice: parseFloat(item.usd_price),
-        usdPriceText: item.usd_price_text,
-        retailPrice: parseFloat(item.retail_price),
-        url: item.url,
-        imageUrl: item.imageUrl || item.image_url,
-        dataUrl: item.data_url,
-        editUrl: item.edit_url,
-        productType: item.productType,
-        productLine: item.productLine,
-        stock: item.stock,
-        isHot: item.is_hot,
-        store: 'Taps Games'
-      }));
+      const prices = products.map(item => {
+        const priceResult = {
+          id: item.id,
+          name: item.name,
+          displayName: item.display_name,
+          price: parseFloat(item.price),
+          priceText: item.price_text,
+          usdPrice: parseFloat(item.usd_price),
+          usdPriceText: item.usd_price_text,
+          retailPrice: parseFloat(item.retail_price),
+          url: item.url,
+          imageUrl: item.imageUrl || item.image_url,
+          dataUrl: item.data_url,
+          editUrl: item.edit_url,
+          productType: item.productType,
+          productLine: item.productLine,
+          stock: item.stock,
+          isHot: item.is_hot,
+          store: 'Taps Games'
+        };
+        
+        this.logger.debug(`Taps result for "${cardName}":`, priceResult);
+        return priceResult;
+      });
+
+      this.logger.info(`Found ${prices.length} price results for "${cardName}" (${data.count || products.length} total results)`);
 
       return {
         cardName,
@@ -179,7 +186,7 @@ class TapsProcessor extends BaseProcessor {
         searchedAt: new Date()
       };
     } catch (parseError) {
-      logger.error(`Error parsing Taps response for "${cardName}":`, parseError.message);
+      this.logger.error(`Error parsing Taps response for "${cardName}":`, parseError.message);
       return {
         cardName,
         found: false,
@@ -191,7 +198,7 @@ class TapsProcessor extends BaseProcessor {
 
   async parseProductPage(url) {
     try {
-      logger.debug(`Fetching product page: ${url}`);
+      this.logger.debug(`Fetching product page: ${url}`);
       
       const response = await axios.get(url, {
         timeout: 10000,
@@ -202,7 +209,7 @@ class TapsProcessor extends BaseProcessor {
 
       return this.extractProductData(response.data);
     } catch (error) {
-      logger.error(`Error fetching product page ${url}:`, error.message);
+      this.logger.error(`Error fetching product page ${url}:`, error.message);
       return null;
     }
   }
@@ -259,7 +266,7 @@ class TapsProcessor extends BaseProcessor {
         }))
       };
     } catch (error) {
-      logger.error('Error extracting product data from HTML:', error.message);
+      this.logger.error('Error extracting product data from HTML:', error.message);
       return null;
     }
   }
@@ -290,7 +297,7 @@ class TapsProcessor extends BaseProcessor {
 
       return null;
     } catch (error) {
-      logger.error('Error extracting live inventory:', error.message);
+      this.logger.error('Error extracting live inventory:', error.message);
       return null;
     }
   }
@@ -299,7 +306,7 @@ class TapsProcessor extends BaseProcessor {
     const results = [];
     
     for (const card of cards) {
-      logger.debug(`Processing ${card.Quantity}x ${card.Name} with Taps`);
+      this.logger.debug(`Processing ${card.Quantity}x ${card.Name} with Taps`);
       
       const priceData = await this.searchCard(card.Name);
       

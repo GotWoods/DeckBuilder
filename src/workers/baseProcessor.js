@@ -1,10 +1,15 @@
 const { CardResult } = require('../models/cardResult');
+const logger = require('../config/logger');
 
 /**
  * Base class for card processors
  * Defines the contract that all processors must implement
  */
 class BaseProcessor {
+  constructor() {
+    // Create a child logger with processor context
+    this.logger = logger.child({ processor: this.constructor.name });
+  }
   /**
    * Process an array of cards and return standardized CardResult objects
    * @param {Array} cards - Array of card objects with Quantity and Name properties

@@ -3,7 +3,7 @@ const winston = require('winston');
 // Conditionally require winston-seq to handle test environment
 let SeqTransport;
 try {
-  SeqTransport = require('winston-seq').SeqTransport;
+  SeqTransport = require('winston-seq').Seq;
 } catch (error) {
   // Fallback for test environment or if winston-seq is not available
   SeqTransport = null;
