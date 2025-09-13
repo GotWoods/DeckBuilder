@@ -1,5 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
+const CardResult = require('../models/cardResult');
 
 class FaceToFaceProcessor extends BaseProcessor {
   constructor() {
@@ -104,10 +105,32 @@ class FaceToFaceProcessor extends BaseProcessor {
       console.log(`Processing ${card.Quantity}x ${card.Name}`);
       
       const priceData = await this.searchCard(card.Name);
-      results.push({
-        ...card,
-        priceData
-      });
+      
+      if (priceData.found && priceData.prices.length > 0) {
+        // Get the best price (lowest price that's in stock)
+        const inStockPrices = priceData.prices.filter(p => p.inStock);
+        const bestPrice = inStockPrices.length > 0 
+          ? inStockPrices.reduce((min, current) => current.sellPrice < min.sellPrice ? current : min)
+          : priceData.prices[0]; // fallback to first price if none in stock
+
+        // Build product URL from handle
+        const productUrl = bestPrice.productHandle 
+          ? `https://facetofacegames.com/products/${bestPrice.productHandle}`
+          : null;
+
+        results.push(new CardResult({
+          name: card.Name,
+          quantity: card.Quantity,
+          price: Math.round(bestPrice.sellPrice * 100), // Convert to cents
+          set: bestPrice.set,
+          condition: bestPrice.condition,
+          inStock: bestPrice.inStock,
+          source: 'facetoface',
+          url: productUrl
+        }));
+      } else {
+        results.push(this.createNotFoundResult(card, 'facetoface'));
+      }
       
       // Add delay to be respectful to the API
       await this.delay(500);

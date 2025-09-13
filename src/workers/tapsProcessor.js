@@ -1,5 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
+const CardResult = require('../models/cardResult');
 
 /*
 Example of script tag data from Taps Games product pages:
@@ -300,10 +301,37 @@ class TapsProcessor extends BaseProcessor {
       console.log(`Processing ${card.Quantity}x ${card.Name} with Taps`);
       
       const priceData = await this.searchCard(card.Name);
-      results.push({
-        ...card,
-        tapsData: priceData
-      });
+      
+      if (priceData.found && priceData.prices.length > 0) {
+        // Get the best price (lowest price available)
+        const bestPrice = priceData.prices.reduce((min, current) => 
+          current.price < min.price ? current : min
+        );
+
+        // Try to get more detailed product info if URL is available
+        let detailedInfo = null;
+        if (bestPrice.url) {
+          detailedInfo = await this.parseProductPage(bestPrice.url);
+          await this.delay(200); // Small delay for product page fetch
+        }
+
+        // Extract set info from display name (e.g., "Lightning Bolt [Anthologies]")
+        const setMatch = bestPrice.displayName?.match(/\[([^\]]+)\]$/);
+        const set = setMatch ? setMatch[1] : null;
+
+        results.push(new CardResult({
+          name: card.Name,
+          quantity: card.Quantity,
+          price: Math.round(bestPrice.price * 100), // Convert to cents
+          set: set,
+          condition: detailedInfo?.variants?.[0]?.condition || 'Unknown',
+          inStock: (detailedInfo?.liveInventory?.inStock) || bestPrice.stock > 0,
+          source: 'taps',
+          url: bestPrice.url
+        }));
+      } else {
+        results.push(this.createNotFoundResult(card, 'taps'));
+      }
       
       // Add delay to be respectful to the API
       await this.delay(500);
