@@ -1,4 +1,4 @@
-const CardResult = require('../../src/models/cardResult');
+const { CardResult } = require('../../src/models/cardResult');
 
 describe('CardResult', () => {
   describe('constructor', () => {

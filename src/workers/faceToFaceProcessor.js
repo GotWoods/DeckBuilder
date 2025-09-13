@@ -1,6 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
-const CardResult = require('../models/cardResult');
+const { CardResult } = require('../models/cardResult');
 
 class FaceToFaceProcessor extends BaseProcessor {
   constructor() {

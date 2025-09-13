@@ -1,5 +1,5 @@
 const BaseProcessor = require('../../src/workers/baseProcessor');
-const CardResult = require('../../src/models/cardResult');
+const { CardResult } = require('../../src/models/cardResult');
 
 describe('BaseProcessor', () => {
   test('should throw error when processCards is not implemented', async () => {

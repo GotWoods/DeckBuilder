@@ -1,6 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
-const CardResult = require('../models/cardResult');
+const { CardResult } = require('../models/cardResult');
 
 /*
 Example of script tag data from Taps Games product pages:

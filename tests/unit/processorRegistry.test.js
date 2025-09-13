@@ -1,5 +1,5 @@
 const ProcessorRegistry = require('../../src/utils/processorRegistry');
-const CardResult = require('../../src/models/cardResult');
+const { CardResult } = require('../../src/models/cardResult');
 
 // Mock the processors
 jest.mock('../../src/workers/faceToFaceProcessor', () => {

@@ -1,4 +1,4 @@
-const CardResult = require('../models/cardResult');
+const { CardResult } = require('../models/cardResult');
 
 /**
  * Base class for card processors
