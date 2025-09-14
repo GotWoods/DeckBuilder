@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import connectDB from './config/database';
 import logger from './config/logger';
 import importRoutes from './routes/importRoutes';
+import deckRoutes from './routes/deckRoutes';
 import deckQueue from './utils/deckQueue';
 
 dotenv.config();
@@ -21,6 +22,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use('/api/import', importRoutes);
+app.use('/api/deck', deckRoutes);
 
 const server = app.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);

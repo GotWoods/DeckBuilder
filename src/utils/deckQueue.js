@@ -3,7 +3,16 @@ const redisConfig = require('../config/redis');
 const logger = require('../config/logger');
 
 const deckQueue = new Bull('deck processing', {
-  redis: redisConfig
+  redis: redisConfig,
+  defaultJobOptions: {
+    removeOnComplete: 10,
+    removeOnFail: 50,
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000
+    }
+  }
 });
 
 // Log Redis connection events

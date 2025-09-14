@@ -1,8 +1,13 @@
+require('dotenv').config();
+const connectDB = require('../config/database');
 const deckQueue = require('../utils/deckQueue');
 const Deck = require('../models/deckSchema');
 const logger = require('../config/logger');
 const ProcessorRegistry = require('../utils/processorRegistry');
 const { createBatches } = require('../utils/arrayUtils');
+
+// Connect to MongoDB
+connectDB();
 
 const processorRegistry = new ProcessorRegistry();
 
