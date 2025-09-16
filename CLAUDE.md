@@ -57,3 +57,4 @@ This is a Node.js/Express deck import and card pricing system with queue-based p
 - `SEQ_API_KEY`: Seq API key for authentication (optional)
 
 Both worker and server processes must run concurrently for full functionality.
+- server runs on port 3000, client runs on port 3001

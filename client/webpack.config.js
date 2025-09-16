@@ -4,7 +4,7 @@ const path = require('path');
 
 module.exports = {
   mode: 'development',
-  entry: './src/client/index.tsx',
+  entry: './src/index.tsx',
   module: {
     rules: [
       {
@@ -12,7 +12,7 @@ module.exports = {
         use: {
           loader: 'ts-loader',
           options: {
-            configFile: 'tsconfig.frontend.json',
+            configFile: 'tsconfig.json',
             transpileOnly: true
           }
         },

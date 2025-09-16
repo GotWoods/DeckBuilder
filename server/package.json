@@ -1,0 +1,45 @@
+{
+  "name": "deckbuilder-server",
+  "version": "1.0.0",
+  "description": "DeckBuilder server API",
+  "main": "../dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node ../dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "worker": "ts-node src/workers/deckProcessor.js",
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:functional": "jest tests/functional",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": ["deckbuilder", "api", "express"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "bull": "^4.16.5",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "mongoose": "^8.18.1",
+    "redis": "^5.8.2",
+    "winston": "^3.17.0",
+    "winston-seq": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
+    "@types/mongoose": "^5.11.96",
+    "@types/node": "^24.3.3",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.1.3",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}

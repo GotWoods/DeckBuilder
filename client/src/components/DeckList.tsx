@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Deck } from '../types/deck';
 import { deckService } from '../services';
 
@@ -59,7 +60,8 @@ const DeckList: React.FC = () => {
       ) : (
         <div style={styles.deckGrid}>
           {decks.map((deck) => (
-            <div key={deck._id} style={styles.deckCard}>
+            <Link key={deck._id} to={`/deck/${deck._id}`} style={styles.deckLink}>
+              <div style={styles.deckCard}>
               <div style={styles.deckHeader}>
                 <h3>Deck #{deck._id.slice(-6)}</h3>
                 <span style={{
@@ -88,7 +90,8 @@ const DeckList: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
+              </div>
+            </Link>
           ))}
         </div>
       )}
@@ -136,12 +139,18 @@ const styles = {
     gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
     gap: '20px',
   },
+  deckLink: {
+    textDecoration: 'none',
+    color: 'inherit',
+  },
   deckCard: {
     backgroundColor: 'white',
     border: '1px solid #e0e0e0',
     borderRadius: '8px',
     padding: '20px',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    transition: 'box-shadow 0.2s, transform 0.2s',
+    cursor: 'pointer',
   },
   deckHeader: {
     display: 'flex',
