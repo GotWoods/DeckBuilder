@@ -4,9 +4,6 @@ import deckController from '../controllers/deckController';
 const router = express.Router();
 
 router.get('/', deckController.getAll);
-router.get('/test', (req, res) => {
-  res.json({ message: 'Test route works', success: true });
-});
 router.get('/:id', deckController.getById);
-
+router.post('/:id/refresh', deckController.refreshPricing);
 export default router;

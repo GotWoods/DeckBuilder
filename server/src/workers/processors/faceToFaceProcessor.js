@@ -1,6 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
-const { CardResult } = require('../models/cardResult');
+const { CardResult } = require('../../models/cardResult');
 
 class FaceToFaceProcessor extends BaseProcessor {
   constructor() {
@@ -86,6 +86,10 @@ class FaceToFaceProcessor extends BaseProcessor {
 
       this.logger.info(`Found ${prices.length} price results for "${cardName}" (${data.hits?.total?.value || 0} total hits)`);
 
+      // Debug logging for set information
+      const setInfo = prices.map(p => ({ set: p.set, price: p.sellPrice, inStock: p.inStock }));
+      this.logger.debug(`FaceToFace sets found for "${cardName}":`, JSON.stringify(setInfo, null, 2));
+
       return {
         cardName,
         found: true,
@@ -113,28 +117,41 @@ class FaceToFaceProcessor extends BaseProcessor {
       const priceData = await this.searchCard(card.Name);
       
       if (priceData.found && priceData.prices.length > 0) {
-        // Get the best price (lowest price that's in stock)
-        const inStockPrices = priceData.prices.filter(p => p.inStock);
-        const bestPrice = inStockPrices.length > 0 
-          ? inStockPrices.reduce((min, current) => current.sellPrice < min.sellPrice ? current : min)
-          : priceData.prices[0]; // fallback to first price if none in stock
+        // Group prices by set, then get best price per set
+        const pricesBySet = {};
+        priceData.prices.forEach(price => {
+          const setName = price.set || 'Unknown Set';
+          if (!pricesBySet[setName] || price.sellPrice < pricesBySet[setName].sellPrice) {
+            pricesBySet[setName] = price;
+          }
+        });
 
-        // Build product URL from handle
-        const productUrl = bestPrice.productHandle 
-          ? `https://facetofacegames.com/products/${bestPrice.productHandle}`
-          : null;
+        this.logger.info(`FaceToFace: "${card.Name}" - Found ${Object.keys(pricesBySet).length} unique sets: ${Object.keys(pricesBySet).join(', ')}`);
 
-        results.push(new CardResult({
-          name: card.Name,
-          quantity: card.Quantity,
-          price: Math.round(bestPrice.sellPrice * 100), // Convert to cents
-          set: bestPrice.set,
-          condition: bestPrice.condition,
-          inStock: bestPrice.inStock,
-          source: 'facetoface',
-          url: productUrl
-        }));
+        // Create a result for each set
+        Object.values(pricesBySet).forEach(bestPriceForSet => {
+          const productUrl = bestPriceForSet.productHandle
+            ? `https://facetofacegames.com/products/${bestPriceForSet.productHandle}`
+            : null;
+
+          const cardResult = new CardResult({
+            name: card.Name,
+            quantity: card.Quantity,
+            price: Math.round(bestPriceForSet.sellPrice * 100), // Convert to cents
+            set: bestPriceForSet.set,
+            condition: bestPriceForSet.condition,
+            inStock: bestPriceForSet.inStock,
+            source: 'facetoface',
+            url: productUrl
+          });
+
+          this.logger.debug(`FaceToFace: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.sellPrice}`);
+          results.push(cardResult);
+        });
+
+        this.logger.info(`FaceToFace: "${card.Name}" - Created ${Object.keys(pricesBySet).length} CardResult objects`);
       } else {
+        this.logger.info(`FaceToFace: "${card.Name}" - No prices found, creating not-found result`);
         results.push(this.createNotFoundResult(card, 'facetoface'));
       }
       

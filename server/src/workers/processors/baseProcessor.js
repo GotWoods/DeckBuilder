@@ -1,5 +1,5 @@
-const { CardResult } = require('../models/cardResult');
-const logger = require('../config/logger');
+const { CardResult } = require('../../models/cardResult');
+const logger = require('../../config/logger');
 
 /**
  * Base class for card processors

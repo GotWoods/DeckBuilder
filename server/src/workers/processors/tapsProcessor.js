@@ -1,6 +1,6 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
-const { CardResult } = require('../models/cardResult');
+const { CardResult } = require('../../models/cardResult');
 
 /*
 Example of script tag data from Taps Games product pages:
@@ -176,6 +176,14 @@ class TapsProcessor extends BaseProcessor {
 
       this.logger.info(`Found ${prices.length} price results for "${cardName}" (${data.count || products.length} total results)`);
 
+      // Debug logging for set information
+      const setInfo = prices.map(p => {
+        const setMatch = p.displayName?.match(/\[([^\]]+)\]$/);
+        const set = setMatch ? setMatch[1] : 'No Set Found';
+        return { displayName: p.displayName, extractedSet: set, price: p.price };
+      });
+      this.logger.debug(`Taps sets found for "${cardName}":`, JSON.stringify(setInfo, null, 2));
+
       return {
         cardName,
         found: true,
@@ -311,33 +319,50 @@ class TapsProcessor extends BaseProcessor {
       const priceData = await this.searchCard(card.Name);
       
       if (priceData.found && priceData.prices.length > 0) {
-        // Get the best price (lowest price available)
-        const bestPrice = priceData.prices.reduce((min, current) => 
-          current.price < min.price ? current : min
-        );
+        // Group prices by set, then get best price per set
+        const pricesBySet = {};
 
-        // Try to get more detailed product info if URL is available
-        let detailedInfo = null;
-        if (bestPrice.url) {
-          detailedInfo = await this.parseProductPage(bestPrice.url);
-          await this.delay(200); // Small delay for product page fetch
+        for (const price of priceData.prices) {
+          // Extract set info from display name (e.g., "Lightning Bolt [Anthologies]")
+          const setMatch = price.displayName?.match(/\[([^\]]+)\]$/);
+          const setName = setMatch ? setMatch[1] : 'Unknown Set';
+
+          this.logger.debug(`Taps: "${card.Name}" - Display name: "${price.displayName}" -> Extracted set: "${setName}"`);
+
+          if (!pricesBySet[setName] || price.price < pricesBySet[setName].price) {
+            pricesBySet[setName] = { ...price, set: setName };
+          }
         }
 
-        // Extract set info from display name (e.g., "Lightning Bolt [Anthologies]")
-        const setMatch = bestPrice.displayName?.match(/\[([^\]]+)\]$/);
-        const set = setMatch ? setMatch[1] : null;
+        this.logger.info(`Taps: "${card.Name}" - Found ${Object.keys(pricesBySet).length} unique sets: ${Object.keys(pricesBySet).join(', ')}`);
 
-        results.push(new CardResult({
-          name: card.Name,
-          quantity: card.Quantity,
-          price: Math.round(bestPrice.price * 100), // Convert to cents
-          set: set,
-          condition: detailedInfo?.variants?.[0]?.condition || 'Unknown',
-          inStock: (detailedInfo?.liveInventory?.inStock) || bestPrice.stock > 0,
-          source: 'taps',
-          url: bestPrice.url
-        }));
+        // Create a result for each set
+        for (const bestPriceForSet of Object.values(pricesBySet)) {
+          // Try to get more detailed product info if URL is available
+          let detailedInfo = null;
+          if (bestPriceForSet.url) {
+            detailedInfo = await this.parseProductPage(bestPriceForSet.url);
+            await this.delay(200); // Small delay for product page fetch
+          }
+
+          const cardResult = new CardResult({
+            name: card.Name,
+            quantity: card.Quantity,
+            price: Math.round(bestPriceForSet.price * 100), // Convert to cents
+            set: bestPriceForSet.set,
+            condition: detailedInfo?.variants?.[0]?.condition || 'Unknown',
+            inStock: (detailedInfo?.liveInventory?.inStock) || bestPriceForSet.stock > 0,
+            source: 'taps',
+            url: bestPriceForSet.url
+          });
+
+          this.logger.debug(`Taps: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.price}`);
+          results.push(cardResult);
+        }
+
+        this.logger.info(`Taps: "${card.Name}" - Created ${Object.keys(pricesBySet).length} CardResult objects`);
       } else {
+        this.logger.info(`Taps: "${card.Name}" - No prices found, creating not-found result`);
         results.push(this.createNotFoundResult(card, 'taps'));
       }
       

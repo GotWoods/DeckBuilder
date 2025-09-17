@@ -1,5 +1,6 @@
-const FaceToFaceProcessor = require('../workers/faceToFaceProcessor');
-const TapsProcessor = require('../workers/tapsProcessor');
+const FaceToFaceProcessor = require('../workers/processors/faceToFaceProcessor');
+const TapsProcessor = require('../workers/processors/tapsProcessor');
+const RedClawProcessor = require('../workers/processors/redClawProcessor');
 
 class ProcessorRegistry {
   constructor() {
@@ -10,6 +11,7 @@ class ProcessorRegistry {
   initializeProcessors() {
     this.processors.push(new FaceToFaceProcessor());
     this.processors.push(new TapsProcessor());
+    this.processors.push(new RedClawProcessor());
   }
 
   getProcessors() {

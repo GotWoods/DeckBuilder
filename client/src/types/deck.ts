@@ -1,16 +1,18 @@
-export interface Card {
-  _id?: string;
-  Quantity: number;
-  Name: string;
-  Prices?: any[];
+// Import server types
+import { IPricingResult, IPricing, ICard, IDeck } from '../../../server/src/models';
+
+export interface ProcessedPricing extends IPricing {
+  groupedByVendor?: Record<string, IPricingResult[]>;
 }
 
-export interface Deck {
+export interface Card extends Omit<ICard, 'pricing'> {
+  _id?: string;
+  pricing?: ProcessedPricing;
+}
+
+export interface Deck extends Omit<IDeck, '_id' | 'Cards'> {
   _id: string;
   Cards: Card[];
-  Importing: boolean;
-  createdAt: string;
-  __v?: number;
 }
 
 export interface ApiResponse<T> {

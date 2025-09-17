@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { cardSchema, ICard } from './cardSchema';
+import { cardSchema } from './cardSchema';
+import { ICard } from './ICard';
 
 export interface IDeck extends Document {
   Cards: ICard[];

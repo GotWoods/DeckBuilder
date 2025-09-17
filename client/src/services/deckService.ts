@@ -17,6 +17,13 @@ export class DeckService {
     }
     return response.data;
   }
+
+  async refreshDeckPricing(id: string) {
+    const response = await apiService.post<ApiResponse<null>>(`/api/deck/${id}/refresh`, {});
+    if (!response.success) {
+      throw new Error('API returned error');
+    }
+  }
 }
 
 export default new DeckService();

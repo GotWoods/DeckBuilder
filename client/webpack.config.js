@@ -30,6 +30,7 @@ module.exports = {
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist/frontend'),
+    publicPath: '/',
     clean: true,
   },
   plugins: [
@@ -42,6 +43,7 @@ module.exports = {
   ],
   devServer: {
     static: './dist/frontend',
-    port: 3005,
+    port: 3001,
+    historyApiFallback: true,
   },
 };

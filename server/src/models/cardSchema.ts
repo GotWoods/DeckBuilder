@@ -1,27 +1,4 @@
-import { Schema, Document } from 'mongoose';
-
-export interface IPricingResult {
-  found: boolean;
-  price: number; // in cents
-  set: string;
-  condition: string;
-  inStock: boolean;
-  url: string;
-  source: string;
-  name: string; // Card name as found by processor
-  quantity: number; // Quantity requested
-}
-
-export interface IPricing {
-  results: IPricingResult[];
-  processedAt: Date;
-}
-
-export interface ICard extends Document {
-  Quantity: number;
-  Name: string;
-  pricing?: IPricing;
-}
+import { Schema } from 'mongoose';
 
 export const cardSchema = new Schema({
   Quantity: {
