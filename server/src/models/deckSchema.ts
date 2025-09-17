@@ -41,8 +41,8 @@ deckSchema.methods.import = function(this: IDeck, importData: string): void {
       let cardName = parts.slice(1).join(' ');
 
       // Remove collection code and number at the end
-      // Matches patterns like "(SLD) 433", "(BRO) 123", etc.
-      cardName = cardName.replace(/\s*\([A-Z0-9]{2,5}\)\s*\d+\s*$/, '');
+      // Matches patterns like "(SLD) 433", "(BRO) 123", "(PLST) MH1-188", "(PLST) WOE-267", etc.
+      cardName = cardName.replace(/\s*\([A-Z0-9]{2,5}\)\s*[A-Z0-9][A-Z0-9-]*\s*$/, '');
 
       // Also handle cases where there might just be a number at the end
       cardName = cardName.replace(/\s+\d+\s*$/, '');

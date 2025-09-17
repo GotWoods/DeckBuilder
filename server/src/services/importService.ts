@@ -22,7 +22,7 @@ const importDeck = async (importData: string, userId: string | null = null) => {
       deckId: savedDeck._id
     }, {
       attempts: 3,
-      backoff: 'exponential',
+      backoff: { type: 'exponential' },
       delay: 1000
     });
 

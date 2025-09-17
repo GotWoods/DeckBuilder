@@ -10,6 +10,10 @@ export const cardSchema = new Schema({
     type: String,
     required: true
   },
+  purchased: {
+    type: Boolean,
+    default: false
+  },
   pricing: {
     results: [{
       found: Boolean,

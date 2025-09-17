@@ -37,6 +37,24 @@ class BaseProcessor {
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
+
+  /**
+   * Ensures a value is a string, handling arrays and other types
+   * @param {any} value - Value to convert to string
+   * @returns {string} - String representation or fallback
+   */
+  ensureString(value) {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (Array.isArray(value)) {
+      return value.length > 0 ? String(value[0]) : 'Unknown Set';
+    }
+    if (value === null || value === undefined) {
+      return 'Unknown Set';
+    }
+    return String(value);
+  }
 }
 
 module.exports = BaseProcessor;

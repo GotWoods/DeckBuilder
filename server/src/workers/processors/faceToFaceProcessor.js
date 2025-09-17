@@ -128,7 +128,7 @@ class FaceToFaceProcessor extends BaseProcessor {
             price: regularPrice,
             sellPrice: sellPrice,
             condition: variant.selectedOptions?.find(opt => opt.name === 'Condition')?.value || 'Unknown',
-            set: source.Set || source.MTG_Set_Name,
+            set: this.ensureString(source.Set || source.MTG_Set_Name),
             collectorNumber: source.MTG_Collector_Number,
             rarity: source.MTG_Rarity,
             foil: source.MTG_Foil_Option === 'Foil',
