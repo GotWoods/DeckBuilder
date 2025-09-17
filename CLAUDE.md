@@ -56,6 +56,34 @@ This is a Node.js/Express deck import and card pricing system with queue-based p
 - `SEQ_URL`: Seq server URL (default: http://localhost:5341)
 - `SEQ_API_KEY`: Seq API key for authentication (optional)
 
+### Authentication Setup
+
+The application now includes user authentication with Google and Facebook OAuth:
+
+#### Server Environment Variables (.env)
+- `JWT_SECRET`: Secret key for JWT token signing
+- `SESSION_SECRET`: Secret key for Express sessions
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
+- `FACEBOOK_APP_ID`: Facebook app ID
+- `FACEBOOK_APP_SECRET`: Facebook app secret
+- `CLIENT_URL`: Frontend URL for OAuth redirects (default: http://localhost:3001)
+
+#### OAuth Setup
+1. **Google OAuth**: Create project at https://console.developers.google.com
+   - Enable Google+ API
+   - Create OAuth 2.0 credentials
+   - Add `http://localhost:3000/auth/google/callback` as authorized redirect URI
+
+2. **Facebook OAuth**: Create app at https://developers.facebook.com
+   - Add Facebook Login product
+   - Add `http://localhost:3000/auth/facebook/callback` as valid OAuth redirect URI
+
+#### User Data Association
+- Decks are automatically associated with authenticated users via `userId` field
+- Unauthenticated users can still view public decks (backwards compatibility)
+- Users only see and can modify their own decks when authenticated
+
 Both worker and server processes must run concurrently for full functionality.
 - server runs on port 3000, client runs on port 3001
 - do not start npm processes. I will run them manually

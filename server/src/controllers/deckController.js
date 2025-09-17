@@ -4,9 +4,12 @@ const deckQueue = require('../utils/deckQueue');
 
 const getAll = async (req, res) => {
   try {
-    logger.info('Retrieving all decks from database');
+    const userId = req.user?.id;
+    logger.info(`Retrieving decks from database for user: ${userId || 'anonymous'}`);
 
-    const decks = await Deck.find({}).sort({ createdAt: -1 });
+    // Filter by user if authenticated, otherwise show all (backwards compatibility)
+    const filter = userId ? { userId } : {};
+    const decks = await Deck.find(filter).sort({ createdAt: -1 });
 
     logger.info(`Retrieved ${decks.length} decks from database`);
 
@@ -27,13 +30,16 @@ const getAll = async (req, res) => {
 const getById = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
 
-    logger.info(`Retrieving deck with ID: ${id}`);
+    logger.info(`Retrieving deck with ID: ${id} for user: ${userId || 'anonymous'}`);
 
-    const deck = await Deck.findById(id);
+    // Find deck and check ownership if user is authenticated
+    const filter = userId ? { _id: id, userId } : { _id: id };
+    const deck = await Deck.findOne(filter);
 
     if (!deck) {
-      logger.warn(`Deck with ID ${id} not found`);
+      logger.warn(`Deck with ID ${id} not found or access denied`);
       return res.status(404).json({
         success: false,
         error: 'Deck not found'
@@ -59,13 +65,16 @@ const getById = async (req, res) => {
 const refreshPricing = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
 
-    logger.info(`Refreshing price for deck with ID: ${id}`);
+    logger.info(`Refreshing price for deck with ID: ${id} for user: ${userId || 'anonymous'}`);
 
-    const deck = await Deck.findById(id);
+    // Find deck and check ownership if user is authenticated
+    const filter = userId ? { _id: id, userId } : { _id: id };
+    const deck = await Deck.findOne(filter);
 
     if (!deck) {
-      logger.warn(`Deck with ID ${id} not found`);
+      logger.warn(`Deck with ID ${id} not found or access denied`);
       return res.status(404).json({
         success: false,
         error: 'Deck not found'

@@ -11,12 +11,12 @@ class ProcessorRegistry {
   }
 
   initializeProcessors() {
-    // Enable only FaceToFace for testing
+    // Enable all processors
     this.processors.push(new FaceToFaceProcessor());
-    // this.processors.push(new TapsProcessor());
-    // this.processors.push(new RedClawProcessor());
-    // this.processors.push(new PrismaProcessor());
-    // this.processors.push(new TimeVaultProcessor());
+    this.processors.push(new TapsProcessor());
+    this.processors.push(new RedClawProcessor());
+    this.processors.push(new PrismaProcessor());
+    this.processors.push(new TimeVaultProcessor());
   }
 
   getProcessors() {

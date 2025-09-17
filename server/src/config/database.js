@@ -7,7 +7,8 @@ const connectDB = async () => {
     logger.info(`Connected to MongoDB at ${conn.connection.host}`);
   } catch (error) {
     logger.error('Error connecting to MongoDB:', error.message);
-    process.exit(1);
+    logger.warn('Server will continue without database connection - auth may not work properly');
+    // Don't exit - allow server to start for testing OAuth endpoints
   }
 };
 

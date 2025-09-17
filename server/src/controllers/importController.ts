@@ -1,10 +1,11 @@
-const logger = require('../config/logger');
-const importService = require('../services/importService');
+import { Request, Response } from 'express';
+import logger from '../config/logger';
+import { importDeck as importDeckService } from '../services/importService';
 
-const importDeck = async (req, res) => {
+const importDeck = async (req: Request, res: Response) => {
   try {
     const { importData } = req.body;
-    const userId = req.user?.id;
+    const userId = (req as any).user?.id;
 
     if (!importData) {
       return res.status(400).json({
@@ -12,7 +13,7 @@ const importDeck = async (req, res) => {
       });
     }
 
-    const result = await importService.importDeck(importData, userId);
+    const result = await importDeckService(importData, userId);
 
     res.status(200).json({
       message: 'Deck imported and queued for processing',
@@ -27,6 +28,6 @@ const importDeck = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   importDeck
 };

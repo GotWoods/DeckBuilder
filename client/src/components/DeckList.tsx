@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Deck } from '../types/deck';
 import { deckService } from '../services';
+import { useAuth } from '../contexts/AuthContext';
 
 const DeckList: React.FC = () => {
+  const { user, logout, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,15 +27,32 @@ const DeckList: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDecks();
-  }, []);
+    if (!authLoading) {
+      fetchDecks();
+    }
+  }, [authLoading]);
 
   const handleRefresh = () => {
     fetchDecks();
   };
 
-  if (loading) {
+  const handleImport = () => {
+    navigate('/import');
+  };
+
+  if (authLoading || loading) {
     return <div style={styles.container}>Loading decks...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.unauthenticated}>
+          <h1>Welcome to DeckBuilder</h1>
+          <p>Please <Link to="/login" style={styles.loginLink}>sign in</Link> to view and manage your decks.</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -50,9 +70,30 @@ const DeckList: React.FC = () => {
     <div style={styles.container}>
       <div style={styles.header}>
         <h1>Your Decks</h1>
-        <button onClick={handleRefresh} style={styles.button}>
-          Refresh
-        </button>
+        <div style={styles.headerRight}>
+          <div style={styles.buttonGroup}>
+            <button onClick={handleImport} style={styles.importButton}>
+              + Import
+            </button>
+            <button onClick={handleRefresh} style={styles.button}>
+              Refresh
+            </button>
+          </div>
+          {user && (
+            <div style={styles.userProfile}>
+              {user.avatar && (
+                <img src={user.avatar} alt={user.name} style={styles.avatar} />
+              )}
+              <div style={styles.userInfo}>
+                <div style={styles.userName}>{user.name}</div>
+                <div style={styles.userEmail}>{user.email}</div>
+              </div>
+              <button onClick={logout} style={styles.logoutButton}>
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {decks.length === 0 ? (
@@ -110,6 +151,15 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '30px',
+  },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '10px',
   },
   button: {
     backgroundColor: '#007bff',
@@ -192,6 +242,61 @@ const styles = {
     fontSize: '12px',
     color: '#6c757d',
     fontStyle: 'italic',
+  },
+  unauthenticated: {
+    textAlign: 'center' as const,
+    marginTop: '100px',
+  },
+  loginLink: {
+    color: '#007bff',
+    textDecoration: 'none',
+    fontWeight: 'bold',
+  },
+  importButton: {
+    backgroundColor: '#28a745',
+    color: 'white',
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 'bold',
+  },
+  userProfile: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '10px 15px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    border: '1px solid #dee2e6',
+  },
+  avatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+  },
+  userInfo: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  userName: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    color: '#212529',
+  },
+  userEmail: {
+    fontSize: '12px',
+    color: '#6c757d',
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    color: 'white',
+    border: 'none',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
   },
 };
 

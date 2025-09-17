@@ -1,11 +1,11 @@
-const Deck = require('../models/deckSchema');
-const deckQueue = require('../utils/deckQueue');
-const logger = require('../config/logger');
+import DeckModel from '../models/deckSchema';
+import deckQueue from '../utils/deckQueue';
+import logger from '../config/logger';
 
-const importDeck = async (importData, userId = null) => {
+const importDeck = async (importData: string, userId: string | null = null) => {
   try {
     // Create and parse deck
-    const deck = new Deck();
+    const deck = new DeckModel();
     deck.import(importData);
 
     // Associate with user if provided
@@ -38,6 +38,6 @@ const importDeck = async (importData, userId = null) => {
   }
 };
 
-module.exports = {
+export {
   importDeck
 };

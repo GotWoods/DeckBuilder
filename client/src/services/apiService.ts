@@ -1,3 +1,5 @@
+import Cookies from 'js-cookie';
+
 class ApiService {
   private baseUrl: string;
 
@@ -7,9 +9,15 @@ class ApiService {
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+
+    // Get auth token from cookies
+    const token = Cookies.get('auth_token');
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options?.headers,
       },
       ...options,

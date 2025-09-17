@@ -2,10 +2,14 @@ import dotenv from 'dotenv';
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import session from 'express-session';
+import passport from './config/passport';
 import connectDB from './config/database';
 import logger from './config/logger';
 import importRoutes from './routes/importRoutes';
 import deckRoutes from './routes/deckRoutes';
+import authRoutes from './routes/authRoutes';
+import { optionalAuth } from './middleware/auth';
 import deckQueue from './utils/deckQueue';
 
 dotenv.config();
@@ -40,6 +44,22 @@ app.use((req, res, next) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Session configuration for passport
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // Set to true in production with HTTPS
+}));
+
+// Initialize passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Apply optional auth middleware to get user context
+app.use(optionalAuth);
+
+app.use('/auth', authRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/deck', deckRoutes);
 
