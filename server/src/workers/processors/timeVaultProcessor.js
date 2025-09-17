@@ -3,11 +3,11 @@ const cheerio = require('cheerio');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../../models/cardResult');
 
-class RedClawProcessor extends BaseProcessor {
+class TimeVaultProcessor extends BaseProcessor {
   constructor() {
     super();
-    this.source = 'redclaw';
-    this.baseUrl = 'https://www.redclawgaming.com/search';
+    this.source = 'timevault';
+    this.baseUrl = 'https://thetimevault.ca/search';
   }
 
   async searchCard(cardName) {
@@ -18,13 +18,13 @@ class RedClawProcessor extends BaseProcessor {
       let currentPage = 1;
       let hasMorePages = true;
 
-      this.logger.info(`Searching RedClaw for: ${cardName} (with pagination)`);
+      this.logger.info(`Searching TimeVault for: ${cardName} (with pagination)`);
 
       while (hasMorePages) {
         const url = `${this.baseUrl}?q=${encodedCardName}*+product_type%3A%22mtg%22&page=${currentPage}`;
 
-        this.logger.debug(`RedClaw: Fetching page ${currentPage} for "${cardName}"`);
-        this.logger.info(`RedClaw URL: ${url}`);
+        this.logger.debug(`TimeVault: Fetching page ${currentPage} for "${cardName}"`);
+        this.logger.info(`TimeVault URL: ${url}`);
 
         const response = await axios.get(url, {
           headers: {
@@ -32,7 +32,7 @@ class RedClawProcessor extends BaseProcessor {
           }
         });
 
-        this.logger.info(`RedClaw response status: ${response.status} for "${cardName}" page ${currentPage}`);
+        this.logger.info(`TimeVault response status: ${response.status} for "${cardName}" page ${currentPage}`);
 
         const pageResult = this.parseResponse(response.data, cardName, currentPage);
 
@@ -43,12 +43,12 @@ class RedClawProcessor extends BaseProcessor {
           if (currentPage === 1) {
             const totalPages = this.extractTotalPages(response.data);
             if (totalPages > 1) {
-              this.logger.info(`RedClaw: Found ${totalPages} total pages for "${cardName}"`);
+              this.logger.info(`TimeVault: Found ${totalPages} total pages for "${cardName}"`);
               // Set hasMorePages based on actual total pages
               hasMorePages = currentPage < totalPages;
             } else {
               hasMorePages = false;
-              this.logger.info(`RedClaw: Only 1 page found for "${cardName}"`);
+              this.logger.info(`TimeVault: Only 1 page found for "${cardName}"`);
             }
           } else {
             // For subsequent pages, use the total pages we found on page 1
@@ -57,14 +57,14 @@ class RedClawProcessor extends BaseProcessor {
           }
 
           if (hasMorePages) {
-            this.logger.info(`RedClaw: Page ${currentPage} returned ${pageResult.prices.length} results, continuing to next page for "${cardName}"`);
+            this.logger.info(`TimeVault: Page ${currentPage} returned ${pageResult.prices.length} results, continuing to next page for "${cardName}"`);
             currentPage++;
           } else {
-            this.logger.info(`RedClaw: Page ${currentPage} was the last page for "${cardName}"`);
+            this.logger.info(`TimeVault: Page ${currentPage} was the last page for "${cardName}"`);
           }
         } else {
           hasMorePages = false;
-          this.logger.info(`RedClaw: Page ${currentPage} returned no results, stopping pagination for "${cardName}"`);
+          this.logger.info(`TimeVault: Page ${currentPage} returned no results, stopping pagination for "${cardName}"`);
         }
 
         // Add delay between requests to be respectful
@@ -73,7 +73,7 @@ class RedClawProcessor extends BaseProcessor {
         }
       }
 
-      this.logger.info(`RedClaw: Found total of ${allProducts.length} products across ${currentPage} pages for "${cardName}"`);
+      this.logger.info(`TimeVault: Found total of ${allProducts.length} products across ${currentPage} pages for "${cardName}"`);
 
       return {
         cardName,
@@ -85,7 +85,7 @@ class RedClawProcessor extends BaseProcessor {
       };
 
     } catch (error) {
-      this.logger.error(`Error searching RedClaw for "${cardName}":`, error.message);
+      this.logger.error(`Error searching TimeVault for "${cardName}":`, error.message);
       return {
         cardName,
         found: false,
@@ -96,7 +96,7 @@ class RedClawProcessor extends BaseProcessor {
 
   parseResponse(html, cardName, pageNumber = 1) {
     try {
-      // Always try HTML parsing first as it's more reliable for RedClaw
+      // Always try HTML parsing first as it's more reliable for TimeVault
       this.logger.info(`Attempting HTML parsing for "${cardName}" on page ${pageNumber}`);
       const htmlResult = this.parseHtmlResponse(html, cardName);
 
@@ -108,7 +108,7 @@ class RedClawProcessor extends BaseProcessor {
       this.logger.info(`All parsing methods failed for "${cardName}"`);
       return htmlResult; // Return the HTML result even if empty
     } catch (parseError) {
-      this.logger.error(`Error parsing RedClaw response for "${cardName}":`, parseError.message);
+      this.logger.error(`Error parsing TimeVault response for "${cardName}":`, parseError.message);
       return {
         cardName,
         found: false,
@@ -129,7 +129,7 @@ class RedClawProcessor extends BaseProcessor {
       this.logger.info(`HTML contains ${productElements.length} product divs for "${cardName}"`);
 
       if (productElements.length === 0) {
-        this.logger.info(`RedClaw: No product divs found for "${cardName}"`);
+        this.logger.info(`TimeVault: No product divs found for "${cardName}"`);
         return {
           cardName,
           found: false,
@@ -144,7 +144,7 @@ class RedClawProcessor extends BaseProcessor {
         productCount++;
         const $product = $(element);
 
-        this.logger.info(`RedClaw: Processing product #${productCount} for "${cardName}"`);
+        this.logger.info(`TimeVault: Processing product #${productCount} for "${cardName}"`);
 
         // Check for addToCart onclick (in-stock products)
         const $addToCart = $product.find('[onclick*="addToCart"]');
@@ -166,7 +166,7 @@ class RedClawProcessor extends BaseProcessor {
               if (priceMatch) {
                 const actualPrice = parseFloat(priceMatch[1]);
                 if (actualPrice && actualPrice !== priceValue) {
-                  this.logger.info(`RedClaw: Using actual price $${actualPrice} instead of onclick price $${priceValue} for "${cardName}"`);
+                  this.logger.info(`TimeVault: Using actual price $${actualPrice} instead of onclick price $${priceValue} for "${cardName}"`);
                   priceValue = actualPrice;
                 }
               }
@@ -181,14 +181,14 @@ class RedClawProcessor extends BaseProcessor {
 
               // Filter out cards that don't start with the search term
               if (!cardTitle.toLowerCase().startsWith(cardName.toLowerCase())) {
-                this.logger.info(`RedClaw: Skipping non-matching product: "${cardTitle}" (doesn't start with "${cardName}")`);
+                this.logger.info(`TimeVault: Skipping non-matching product: "${cardTitle}" (doesn't start with "${cardName}")`);
                 return; // Skip this product in the .each() loop
               }
 
-              this.logger.info(`RedClaw: Found in-stock product: "${cardTitle}" from set "${setName}" at $${priceValue}`);
+              this.logger.info(`TimeVault: Found in-stock product: "${cardTitle}" from set "${setName}" at $${priceValue}`);
 
               products.push({
-                id: `redclaw-${productId}`,
+                id: `timevault-${productId}`,
                 productId: productId,
                 name: cardTitle,
                 price: priceValue,
@@ -198,7 +198,7 @@ class RedClawProcessor extends BaseProcessor {
                 available: true,
                 sku: null,
                 condition: condition,
-                vendor: 'RedClaw Gaming',
+                vendor: 'The Time Vault',
                 productType: 'MTG Single',
                 variantTitle: fullTitle,
                 set: setName
@@ -217,7 +217,7 @@ class RedClawProcessor extends BaseProcessor {
 
               // Filter out cards that don't start with the search term
               if (!cardTitle.toLowerCase().startsWith(cardName.toLowerCase())) {
-                this.logger.info(`RedClaw: Skipping non-matching sold-out product: "${cardTitle}" (doesn't start with "${cardName}")`);
+                this.logger.info(`TimeVault: Skipping non-matching sold-out product: "${cardTitle}" (doesn't start with "${cardName}")`);
                 return; // Skip this product in the .each() loop
               }
 
@@ -232,10 +232,10 @@ class RedClawProcessor extends BaseProcessor {
                 }
               }
 
-              this.logger.info(`RedClaw: Found sold-out product: "${cardTitle}" from set "${setName}"`);
+              this.logger.info(`TimeVault: Found sold-out product: "${cardTitle}" from set "${setName}"`);
 
               products.push({
-                id: `redclaw-soldout-${productCount}`,
+                id: `timevault-soldout-${productCount}`,
                 productId: `soldout-${productCount}`,
                 name: cardTitle,
                 price: originalPrice,
@@ -245,14 +245,14 @@ class RedClawProcessor extends BaseProcessor {
                 available: false,
                 sku: null,
                 condition: 'Unknown',
-                vendor: 'RedClaw Gaming',
+                vendor: 'The Time Vault',
                 productType: 'MTG Single',
                 variantTitle: `${cardTitle} [${setName}]`,
                 set: setName
               });
             }
           } else {
-            this.logger.info(`RedClaw: Product #${productCount} - No onclick or productTitle found for "${cardName}"`);
+            this.logger.info(`TimeVault: Product #${productCount} - No onclick or productTitle found for "${cardName}"`);
           }
         }
       });
@@ -281,7 +281,7 @@ class RedClawProcessor extends BaseProcessor {
     const results = [];
 
     for (const card of cards) {
-      this.logger.debug(`Processing ${card.Quantity}x ${card.Name} with RedClaw`);
+      this.logger.debug(`Processing ${card.Quantity}x ${card.Name} with TimeVault`);
 
       const priceData = await this.searchCard(card.Name);
 
@@ -295,7 +295,7 @@ class RedClawProcessor extends BaseProcessor {
           }
         }
 
-        this.logger.info(`RedClaw: "${card.Name}" - Found ${Object.keys(pricesBySet).length} unique sets: ${Object.keys(pricesBySet).join(', ')}`);
+        this.logger.info(`TimeVault: "${card.Name}" - Found ${Object.keys(pricesBySet).length} unique sets: ${Object.keys(pricesBySet).join(', ')}`);
 
         // Create a result for each set
         for (const bestPriceForSet of Object.values(pricesBySet)) {
@@ -304,19 +304,19 @@ class RedClawProcessor extends BaseProcessor {
             quantity: card.Quantity,
             price: Math.round(bestPriceForSet.price * 100), // Convert to cents
             set: bestPriceForSet.set,
-            condition: 'Unknown', // RedClaw condition handling TBD
+            condition: 'Unknown', // TimeVault condition handling TBD
             inStock: bestPriceForSet.available,
             source: this.source,
             url: bestPriceForSet.url
           });
 
-          this.logger.debug(`RedClaw: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.price}`);
+          this.logger.debug(`TimeVault: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.price}`);
           results.push(cardResult);
         }
 
-        this.logger.info(`RedClaw: "${card.Name}" - Created ${Object.keys(pricesBySet).length} CardResult objects`);
+        this.logger.info(`TimeVault: "${card.Name}" - Created ${Object.keys(pricesBySet).length} CardResult objects`);
       } else {
-        this.logger.info(`RedClaw: "${card.Name}" - No prices found, creating not-found result`);
+        this.logger.info(`TimeVault: "${card.Name}" - No prices found, creating not-found result`);
         results.push(this.createNotFoundResult(card, this.source));
       }
 
@@ -328,7 +328,7 @@ class RedClawProcessor extends BaseProcessor {
   }
 
   extractSetName(productName, tags = []) {
-    // RedClaw format: "Lightning Bolt [Magic 2011]"
+    // TimeVault format: "Lightning Bolt [Magic 2011]"
     // Try to extract set name from product title
 
     const bracketMatch = productName.match(/\[([^\]]+)\]$/);
@@ -336,7 +336,7 @@ class RedClawProcessor extends BaseProcessor {
       return bracketMatch[1];
     }
 
-    // Alternative patterns for RedClaw
+    // Alternative patterns for TimeVault
     const dashMatch = productName.match(/\s-\s([^-\[]+)(?:\s+\[[^\]]+\])?$/);
     if (dashMatch) {
       return dashMatch[1].trim();
@@ -405,12 +405,12 @@ class RedClawProcessor extends BaseProcessor {
 
       if (pageNumbers.length > 0) {
         const maxPage = Math.max(...pageNumbers);
-        this.logger.debug(`RedClaw: Extracted page numbers: [${pageNumbers.join(', ')}], max page: ${maxPage}`);
+        this.logger.debug(`TimeVault: Extracted page numbers: [${pageNumbers.join(', ')}], max page: ${maxPage}`);
         return maxPage;
       }
 
       // Fallback: if no pagination found, assume single page
-      this.logger.debug(`RedClaw: No pagination found, assuming single page`);
+      this.logger.debug(`TimeVault: No pagination found, assuming single page`);
       return 1;
     } catch (error) {
       this.logger.error(`Error extracting total pages:`, error.message);
@@ -419,4 +419,4 @@ class RedClawProcessor extends BaseProcessor {
   }
 }
 
-module.exports = RedClawProcessor;
+module.exports = TimeVaultProcessor;

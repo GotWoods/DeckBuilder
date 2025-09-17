@@ -14,18 +14,24 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
-  "keywords": ["deckbuilder", "api", "express"],
+  "keywords": [
+    "deckbuilder",
+    "api",
+    "express"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "body-parser": "^2.2.0",
     "bull": "^4.16.5",
+    "cheerio": "^1.1.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "mongoose": "^8.18.1",
     "redis": "^5.8.2",
+    "uuid": "^13.0.0",
     "winston": "^3.17.0",
     "winston-seq": "^0.1.0"
   },

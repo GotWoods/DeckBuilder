@@ -58,3 +58,4 @@ This is a Node.js/Express deck import and card pricing system with queue-based p
 
 Both worker and server processes must run concurrently for full functionality.
 - server runs on port 3000, client runs on port 3001
+- do not start npm processes. I will run them manually

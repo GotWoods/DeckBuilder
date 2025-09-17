@@ -11,7 +11,11 @@ connectDB();
 
 const processorRegistry = new ProcessorRegistry();
 
+logger.info('Deck processor worker started');
+logger.info('Setting up Bull queue processor...');
+
 deckQueue.process('processDeck', async (job) => {
+  logger.info('>>> JOB PROCESSOR FUNCTION CALLED <<<');
   try {
     const { deckId } = job.data;
     logger.info(`Processing deck: ${deckId}`);
@@ -119,4 +123,17 @@ deckQueue.process('processDeck', async (job) => {
   }
 });
 
-logger.info('Deck processor worker started');
+// Add explicit Redis connection test
+setTimeout(async () => {
+  logger.info('Checking queue status after 2 seconds...');
+  try {
+    const waiting = await deckQueue.getWaiting();
+    const active = await deckQueue.getActive();
+    logger.info(`Queue waiting jobs: ${waiting.length}`);
+    logger.info(`Queue active jobs: ${active.length}`);
+    logger.info('Queue appears to be working properly');
+  } catch (error) {
+    logger.error('Queue status check failed:', error.message);
+    logger.error('This indicates a Redis connection problem');
+  }
+}, 2000);

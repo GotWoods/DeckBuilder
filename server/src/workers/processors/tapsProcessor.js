@@ -88,38 +88,114 @@ Example of script tag data from Taps Games product pages:
 class TapsProcessor extends BaseProcessor {
   constructor() {
     super();
+    this.source = 'taps';
     this.baseUrl = 'https://store.storepass.co/saas/search';
     this.storeId = 'afbPeXJ2EK';
     this.defaultParams = {
       store_id: this.storeId,
-      limit: 12,
+      limit: 200, // Increased to get more results per page
       sort: 'Relevance',
       mongo: 'true',
       override_buylist_gt_price: 'true',
-      fields: 'id,url,imageUrl,price,name,display_name'
+      product_line: 'All',
+      fields: 'id,productId,availability,stock,selectedFinish,url,imageUrl,price,salePrice,regularPrice,name,variantInfo,bigCommerceImages,msrp,tags,publisher,inventoryLevels,customCollectionImages,display_name',
+      convert_to_currency: '',
+      round_price: '',
+      big_commerce_category_ids: '',
+      brand_name: '',
+      shopify_collection_id: '',
+      product_ids: '',
+      product_handles: '',
+      set_name: '',
+      rarity: '',
+      import_list_text: '',
+      is_hot: '',
+      players: '',
+      playtime: '',
+      min_year: '',
+      max_year: '',
+      min_price: '',
+      max_price: '',
+      product_type: '',
+      publisher: '',
+      designer: '',
+      mechanic: '',
+      category: '',
+      type_line: '',
+      color: '',
+      finish: '',
+      vendor: '',
+      tags: '',
+      exclude_tag: '',
+      in_stock: ''
     };
   }
 
   async searchCard(cardName) {
     try {
       const encodedCardName = encodeURIComponent(cardName);
-      
-      const params = {
-        ...this.defaultParams,
-        name: cardName
-      };
-      
-      this.logger.debug(`Searching Taps for: ${cardName}`);
-      
-      const response = await axios.get(this.baseUrl, {
-        params,
-        timeout: 10000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
 
-      return this.parseResponse(response.data, cardName);
+      let allProducts = [];
+      let currentPage = 1;
+      let hasMorePages = true;
+
+      this.logger.info(`Searching Taps for: ${cardName} (with pagination)`);
+
+      while (hasMorePages) {
+        const params = {
+          ...this.defaultParams,
+          name: cardName,
+          q: cardName,
+          page: currentPage
+        };
+
+        this.logger.debug(`Taps: Fetching page ${currentPage} for "${cardName}"`);
+
+        const response = await axios.get(this.baseUrl, {
+          params,
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        const rawProducts = response.data.products || [];
+        this.logger.info(`Taps: Page ${currentPage} API returned ${rawProducts.length} raw products for "${cardName}"`);
+
+        if (rawProducts.length > 0) {
+          const pageResult = this.parseResponse(response.data, cardName, currentPage);
+          allProducts = allProducts.concat(pageResult.prices);
+
+          // Check if we have more pages based on RAW API response count, not filtered count
+          if (rawProducts.length < this.defaultParams.limit) {
+            hasMorePages = false;
+            this.logger.info(`Taps: Page ${currentPage} returned ${rawProducts.length} raw results (< ${this.defaultParams.limit}), stopping pagination for "${cardName}"`);
+          } else {
+            this.logger.info(`Taps: Page ${currentPage} returned ${rawProducts.length} raw results, checking next page for "${cardName}"`);
+            currentPage++;
+          }
+        } else {
+          hasMorePages = false;
+          this.logger.info(`Taps: Page ${currentPage} returned no results, stopping pagination for "${cardName}"`);
+        }
+
+        // Add a small delay between requests to be respectful
+        if (hasMorePages) {
+          await this.delay(200);
+        }
+      }
+
+      this.logger.info(`Taps: Found total of ${allProducts.length} products across ${currentPage} pages for "${cardName}"`);
+
+      return {
+        cardName,
+        found: allProducts.length > 0,
+        totalResults: allProducts.length,
+        totalPages: currentPage,
+        prices: allProducts,
+        searchedAt: new Date()
+      };
+
     } catch (error) {
       this.logger.error(`Error searching Taps for card "${cardName}":`, error.message);
       return {
@@ -131,13 +207,15 @@ class TapsProcessor extends BaseProcessor {
     }
   }
 
-  parseResponse(data, cardName) {
+  parseResponse(data, cardName, pageNumber = 1) {
     try {
       // Parse the Store Pass response format
       const products = data.products || [];
-      
+
+      this.logger.info(`Taps: Page ${pageNumber} API returned ${products.length} raw products for "${cardName}"`);
+
       if (!products.length) {
-        this.logger.info(`Found 0 results for "${cardName}"`);
+        this.logger.info(`Found 0 results on page ${pageNumber} for "${cardName}"`);
         return {
           cardName,
           found: false,
@@ -148,13 +226,50 @@ class TapsProcessor extends BaseProcessor {
       //"display_name": "Lightning Bolt [Anthologies]",
       //"price": 3.22,
       //"url": "https://tapsgames.com/products/lightning-bolt-anthologies",
- 
-      const prices = products.map(item => {
+
+      // Filter products with robust character handling
+      const filteredProducts = products.filter(item => {
+        const productName = item.display_name || item.name || '';
+
+        // Clean both strings: remove quotes, normalize whitespace, handle encoding issues
+        const cleanProductName = productName
+          .replace(/["""'']/g, '') // Remove various quote characters
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
+
+        const cleanSearchTerm = cardName
+          .replace(/["""'']/g, '') // Remove various quote characters
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
+
+        // Extract card name from display name (e.g., "Lightning Bolt [Anthologies]" -> "Lightning Bolt")
+        const cardTitle = cleanProductName.replace(/\s*\[.*?\]\s*$/, '').trim();
+
+        const matches = cardTitle.toLowerCase().startsWith(cleanSearchTerm.toLowerCase());
+
+        if (!matches && productName.toLowerCase().includes('sol ring')) {
+          // Debug only Sol Ring mismatches to see the issue
+          this.logger.info(`Taps: DEBUG - productName: "${productName}" -> cardTitle: "${cardTitle}" vs searchTerm: "${cleanSearchTerm}"`);
+        }
+
+        return matches;
+      });
+
+      this.logger.info(`Taps: Filtered ${products.length} results to ${filteredProducts.length} matching products for "${cardName}"`);
+
+      if (filteredProducts.length === 0) {
+        this.logger.warn(`Taps: WARNING - All products filtered out for "${cardName}". Raw product sample: ${products.slice(0, 3).map(p => p.display_name || p.name).join(', ')}`);
+      }
+
+      const prices = filteredProducts.map(item => {
         const priceResult = {
           id: item.id,
+          productId: item.productId,
           name: item.name,
           displayName: item.display_name,
           price: parseFloat(item.price),
+          salePrice: parseFloat(item.salePrice),
+          regularPrice: parseFloat(item.regularPrice),
           priceText: item.price_text,
           usdPrice: parseFloat(item.usd_price),
           usdPriceText: item.usd_price_text,
@@ -166,15 +281,25 @@ class TapsProcessor extends BaseProcessor {
           productType: item.productType,
           productLine: item.productLine,
           stock: item.stock,
+          availability: item.availability,
+          inventoryLevels: item.inventoryLevels,
+          variantInfo: item.variantInfo,
+          selectedFinish: item.selectedFinish,
+          tags: item.tags,
+          publisher: item.publisher,
+          msrp: item.msrp,
           isHot: item.is_hot,
           store: 'Taps Games'
         };
+
+        // Debug enhanced stock information
+        this.logger.info(`Taps: "${item.display_name}" - Stock: ${item.stock}, Availability: ${item.availability}, InventoryLevels: ${JSON.stringify(item.inventoryLevels)}, Price: $${item.price}`);
         
         this.logger.debug(`Taps result for "${cardName}":`, priceResult);
         return priceResult;
       });
 
-      this.logger.info(`Found ${prices.length} price results for "${cardName}" (${data.count || products.length} total results)`);
+      this.logger.info(`Found ${prices.length} price results for "${cardName}" (${filteredProducts.length} filtered from ${products.length} total results)`);
 
       // Debug logging for set information
       const setInfo = prices.map(p => {
@@ -187,7 +312,7 @@ class TapsProcessor extends BaseProcessor {
       return {
         cardName,
         found: true,
-        totalResults: data.count || products.length,
+        totalResults: filteredProducts.length,
         currentPage: data.current_page,
         totalPages: data.pages,
         prices,
@@ -226,28 +351,60 @@ class TapsProcessor extends BaseProcessor {
     try {
       // Extract product data from embedded JavaScript
       const productMatch = html.match(/const product = ({[\s\S]*?});/);
-      const variantMatch = html.match(/const variantData = (\[[\s\S]*?\]);/);
-      
       if (!productMatch) {
+        this.logger.error('No product data found in script tags');
         return null;
       }
 
       const productData = JSON.parse(productMatch[1]);
-      const variantData = variantMatch ? JSON.parse(variantMatch[1]) : [];
 
-      // Extract live inventory from HTML element
+      // Extract productVariants data which contains actual inventory
+      const variantMatch = html.match(/const productVariants = (\[[\s\S]*?\]);/);
+      let productVariants = [];
+      if (variantMatch) {
+        productVariants = JSON.parse(variantMatch[1]);
+        this.logger.debug('Found productVariants data:', productVariants);
+      } else {
+        this.logger.debug('No productVariants found, checking for variantData');
+        // Fallback to old variantData format
+        const oldVariantMatch = html.match(/const variantData = (\[[\s\S]*?\]);/);
+        if (oldVariantMatch) {
+          productVariants = JSON.parse(oldVariantMatch[1]);
+        }
+      }
+
+      // Extract live inventory from HTML element as backup
       const liveInventory = this.extractLiveInventory(html);
 
       // Combine product and variant data
       const variants = productData.variants.map(variant => {
-        const additionalVariantData = variantData.find(v => v.id === variant.id.toString());
+        // Find matching variant in productVariants data
+        const variantInventory = productVariants.find(v =>
+          v.id === variant.id.toString() || v.id === variant.id
+        );
+
+        let inventoryQuantity = 0;
+        let available = variant.available;
+
+        if (variantInventory) {
+          // Use inventory from productVariants if available
+          inventoryQuantity = parseInt(variantInventory.inventory_quantity) || 0;
+          available = inventoryQuantity > 0;
+          this.logger.debug(`Variant ${variant.id}: Found inventory ${inventoryQuantity}`);
+        } else {
+          // Fallback to original variant data
+          inventoryQuantity = parseInt(variant.inventory_quantity) || 0;
+          this.logger.debug(`Variant ${variant.id}: Using original inventory ${inventoryQuantity}`);
+        }
+
         return {
           ...variant,
-          ...additionalVariantData
+          inventoryQuantity: inventoryQuantity,
+          available: available
         };
       });
 
-      return {
+      const result = {
         id: productData.id,
         title: productData.title,
         handle: productData.handle,
@@ -260,21 +417,29 @@ class TapsProcessor extends BaseProcessor {
         available: productData.available,
         images: productData.images,
         featuredImage: productData.featured_image,
-        liveInventory: liveInventory, // Add live inventory from HTML
+        liveInventory: liveInventory,
         variants: variants.map(variant => ({
           id: variant.id,
           title: variant.title,
           condition: variant.option1,
           price: variant.price / 100, // Convert from cents
           available: variant.available,
-          inventoryQuantity: parseInt(variant.inventory_quantity) || 0,
+          inventoryQuantity: variant.inventoryQuantity,
           inventoryPolicy: variant.inventory_policy,
           sku: variant.sku,
           weight: variant.weight
         }))
       };
+
+      this.logger.debug(`Extracted product data for ${productData.title}:`, {
+        totalVariants: result.variants.length,
+        variantsWithStock: result.variants.filter(v => v.inventoryQuantity > 0).length
+      });
+
+      return result;
     } catch (error) {
       this.logger.error('Error extracting product data from HTML:', error.message);
+      this.logger.error('Error details:', error.stack);
       return null;
     }
   }
@@ -323,14 +488,29 @@ class TapsProcessor extends BaseProcessor {
         const pricesBySet = {};
 
         for (const price of priceData.prices) {
-          // Extract set info from display name (e.g., "Lightning Bolt [Anthologies]")
-          const setMatch = price.displayName?.match(/\[([^\]]+)\]$/);
+          // Extract set info from display name (e.g., "Lightning Bolt [Anthologies]" or "Sol Ring [Set] Extra Text")
+          const setMatch = price.displayName?.match(/\[([^\]]+)\]/);
           const setName = setMatch ? setMatch[1] : 'Unknown Set';
+
+          // Create unique key combining set name and price to avoid grouping different variants
+          const groupKey = `${setName}_$${price.price}`;
+
+          // Debug in-stock items specifically
+          if (price.stock > 0) {
+            this.logger.info(`Taps: "${card.Name}" - IN-STOCK ITEM: "${price.displayName}" -> Set: "${setName}", Stock: ${price.stock}, Price: $${price.price}, GroupKey: "${groupKey}"`);
+          }
 
           this.logger.debug(`Taps: "${card.Name}" - Display name: "${price.displayName}" -> Extracted set: "${setName}"`);
 
-          if (!pricesBySet[setName] || price.price < pricesBySet[setName].price) {
-            pricesBySet[setName] = { ...price, set: setName };
+          // Prioritize in-stock items, then lowest price (but only group identical prices)
+          const currentBest = pricesBySet[groupKey];
+          const shouldReplace = !currentBest ||
+            (price.stock > 0 && currentBest.stock === 0) || // Prefer in-stock over out-of-stock
+            (price.stock > 0 && currentBest.stock > 0 && price.stock > currentBest.stock); // Both in-stock, prefer higher stock
+
+          if (shouldReplace) {
+            pricesBySet[groupKey] = { ...price, set: setName };
+            this.logger.info(`Taps: "${card.Name}" - Updated best for group "${groupKey}": Stock ${price.stock}, Price $${price.price}`);
           }
         }
 
@@ -338,11 +518,38 @@ class TapsProcessor extends BaseProcessor {
 
         // Create a result for each set
         for (const bestPriceForSet of Object.values(pricesBySet)) {
-          // Try to get more detailed product info if URL is available
-          let detailedInfo = null;
-          if (bestPriceForSet.url) {
-            detailedInfo = await this.parseProductPage(bestPriceForSet.url);
-            await this.delay(200); // Small delay for product page fetch
+          // Determine stock status using enhanced API data
+          let inStock = false;
+          let condition = 'Unknown';
+
+          // Use the stock field from API as primary source
+          if (bestPriceForSet.stock !== null && bestPriceForSet.stock !== undefined) {
+            // Primary: Use stock field from API
+            inStock = bestPriceForSet.stock > 0;
+            this.logger.info(`Taps: "${card.Name}" - Using API stock field: ${bestPriceForSet.stock}, InStock: ${inStock}`);
+          } else if (bestPriceForSet.inventoryLevels && Array.isArray(bestPriceForSet.inventoryLevels)) {
+            // Fallback: Use inventoryLevels if available
+            const totalInventory = bestPriceForSet.inventoryLevels.reduce((total, level) => total + (level.quantity || 0), 0);
+            inStock = totalInventory > 0;
+            this.logger.info(`Taps: "${card.Name}" - Using inventoryLevels: ${totalInventory}, InStock: ${inStock}`);
+          } else if (bestPriceForSet.variantInfo && Array.isArray(bestPriceForSet.variantInfo)) {
+            // Fallback: Use variantInfo if available
+            const variantsWithStock = bestPriceForSet.variantInfo.filter(v => v.inventory_quantity > 0);
+            inStock = variantsWithStock.length > 0;
+            const totalVariantStock = bestPriceForSet.variantInfo.reduce((total, variant) => total + (variant.inventory_quantity || 0), 0);
+            this.logger.info(`Taps: "${card.Name}" - Using variantInfo: ${totalVariantStock}, InStock: ${inStock}`);
+          } else if (bestPriceForSet.availability) {
+            // Final fallback: Check availability field
+            inStock = bestPriceForSet.availability === 'in_stock' || bestPriceForSet.availability === true;
+            this.logger.info(`Taps: "${card.Name}" - Using availability: ${bestPriceForSet.availability}, InStock: ${inStock}`);
+          } else {
+            this.logger.info(`Taps: "${card.Name}" - No inventory data available, assuming out of stock`);
+          }
+
+          // Extract condition from variantInfo if available
+          if (bestPriceForSet.variantInfo && bestPriceForSet.variantInfo.length > 0) {
+            const firstVariant = bestPriceForSet.variantInfo[0];
+            condition = firstVariant.condition || firstVariant.title || 'Unknown';
           }
 
           const cardResult = new CardResult({
@@ -350,8 +557,8 @@ class TapsProcessor extends BaseProcessor {
             quantity: card.Quantity,
             price: Math.round(bestPriceForSet.price * 100), // Convert to cents
             set: bestPriceForSet.set,
-            condition: detailedInfo?.variants?.[0]?.condition || 'Unknown',
-            inStock: (detailedInfo?.liveInventory?.inStock) || bestPriceForSet.stock > 0,
+            condition: condition,
+            inStock: inStock,
             source: 'taps',
             url: bestPriceForSet.url
           });
