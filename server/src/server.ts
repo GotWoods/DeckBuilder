@@ -75,6 +75,15 @@ app.use('/api/import', importRoutes);
 app.use('/api/deck', deckRoutes);
 app.use('/api/cards', cardRoutes);
 
+// Health check endpoint for Fly.io
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Serve static files from React build in production
 if (process.env.NODE_ENV === 'production') {
   const buildPath = path.join(__dirname, '..', 'public');
