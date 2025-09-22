@@ -23,6 +23,7 @@ const VENDOR_DISPLAY_NAMES: Record<string, string> = {
 const DeckDetails: React.FC = () => {
   const { id: deckId } = useParams<{ id: string }>();
   const [deck, setDeck] = useState<Deck | undefined>();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // Helper function to get vendor display name
   const getVendorDisplayName = (vendor: string): string => {
@@ -40,6 +41,16 @@ const DeckDetails: React.FC = () => {
   const [alternateModalCard, setAlternateModalCard] = useState<{ name: string; index: number } | null>(null);
   const navigate = useNavigate();
   const { joinDeckRoom, leaveDeckRoom, onProgress, offProgress } = useSocket();
+
+  // Handle window resize for responsive design
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const calculateCheapestVendorStats = (deck: Deck) => {
     const vendorStats: Record<string, number> = {};
@@ -420,7 +431,9 @@ const DeckDetails: React.FC = () => {
       />
       <div style={styles.container}>
       <div style={styles.header}>
-        <Link to="/" style={styles.backButton}>← Back to Decks</Link>
+        <Link to="/" style={isMobile ? styles.backButtonMobile : styles.backButton}>
+          {isMobile ? '←' : '← Back to Decks'}
+        </Link>
         <h1>{deck.name}</h1>
         {progress.active ? (
           <div style={styles.progressContainer}>
@@ -450,8 +463,9 @@ const DeckDetails: React.FC = () => {
               ...styles.refreshButton,
               ...(progress.active || deck.Importing ? styles.refreshButtonDisabled : {})
             }}
+            title={progress.active || deck.Importing ? 'Processing...' : 'Refresh Prices'}
           >
-            {progress.active || deck.Importing ? 'Processing...' : 'Refresh Prices'}
+            🔄
           </button>
           <button
             onClick={() => setDeleteModalOpen(true)}
@@ -460,20 +474,21 @@ const DeckDetails: React.FC = () => {
               ...styles.deleteButton,
               ...(progress.active || deck.Importing ? styles.deleteButtonDisabled : {})
             }}
+            title="Delete Deck"
           >
-            Delete
+            🗑️
           </button>
         </div>
       </div>
 
-      <div style={styles.deckInfo}>
+      <div style={isMobile ? styles.deckInfo : styles.deckInfoDesktop}>
         <div style={styles.deckInfoLeft}>
           <p><strong>Total Cards:</strong> {deck.Cards.reduce((total, card) => total + card.Quantity, 0)}</p>
           <p><strong>Created:</strong> {new Date(deck.createdAt).toLocaleDateString()}</p>
         </div>
         {!deck.Importing && (
-          <div style={styles.vendorSummary}>
-            <div style={styles.vendorSummaryContainer}>
+          <div style={isMobile ? styles.vendorSummary : styles.vendorSummaryDesktop}>
+            <div style={isMobile ? styles.vendorSummaryContainer : styles.vendorSummaryContainerDesktop}>
               <div style={styles.vendorColumn}>
                 <div style={styles.vendorColumnTitle}>In Stock:</div>
                 <div style={styles.vendorStats}>
@@ -684,6 +699,23 @@ const styles = {
     fontSize: '16px',
     fontWeight: 'bold',
   },
+  backButtonMobile: {
+    textDecoration: 'none',
+    color: '#007bff',
+    fontSize: '20px',
+    fontWeight: 'bold',
+    padding: '10px',
+    borderRadius: '6px',
+    backgroundColor: '#007bff',
+    color: 'white',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '40px',
+    height: '40px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  },
   status: {
     padding: '4px 8px',
     borderRadius: '4px',
@@ -702,6 +734,17 @@ const styles = {
   },
   deckInfo: {
     display: 'flex',
+    flexDirection: 'column' as const,
+    marginBottom: '30px',
+    padding: '15px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    fontSize: '14px',
+    gap: '15px',
+  },
+  deckInfoDesktop: {
+    display: 'flex',
+    flexDirection: 'row' as const,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: '30px',
@@ -709,6 +752,7 @@ const styles = {
     backgroundColor: '#f8f9fa',
     borderRadius: '8px',
     fontSize: '16px',
+    gap: '0',
   },
   deckInfoLeft: {
     flex: 1,
@@ -716,18 +760,31 @@ const styles = {
   vendorSummary: {
     display: 'flex',
     flexDirection: 'column' as const,
+    alignItems: 'stretch',
+    width: '100%',
+  },
+  vendorSummaryDesktop: {
+    display: 'flex',
+    flexDirection: 'column' as const,
     alignItems: 'flex-end',
     minWidth: '500px',
   },
   vendorSummaryContainer: {
     display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '10px',
+  },
+  vendorSummaryContainerDesktop: {
+    display: 'flex',
+    flexDirection: 'row' as const,
     gap: '15px',
   },
   vendorColumn: {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
-    minWidth: '140px',
+    flex: 1,
+    minWidth: '120px',
   },
   vendorColumnTitle: {
     fontSize: '14px',
@@ -999,14 +1056,19 @@ const styles = {
     borderRadius: '4px',
   },
   refreshButton: {
-    padding: '8px 16px',
+    padding: '10px',
     backgroundColor: '#007bff',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '16px',
     fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '40px',
+    height: '40px',
   },
   refreshButtonDisabled: {
     backgroundColor: '#6c757d',
@@ -1018,14 +1080,19 @@ const styles = {
     gap: '10px',
   },
   deleteButton: {
-    padding: '8px 16px',
+    padding: '10px',
     backgroundColor: '#dc3545',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '16px',
     fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '40px',
+    height: '40px',
   },
   deleteButtonDisabled: {
     backgroundColor: '#6c757d',
