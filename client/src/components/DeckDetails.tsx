@@ -621,15 +621,17 @@ const DeckDetails: React.FC = () => {
               return (
                 <div style={styles.cardPricing}>
                   {Object.entries(filteredGroupedByVendor).map(([vendor, results]) => (
-                    results.map((result, resultIndex) => {
+                    results.map((result, displayIndex) => {
+                      // Find the original index in the unfiltered array
+                      const originalIndex = card.pricing.groupedByVendor[vendor].findIndex(r => r === result);
                       const isCheapest = result.inStock && result.price === cheapestPrice;
                       return (
-                        <div key={`${vendor}-${resultIndex}`} style={styles.priceRow}>
+                        <div key={`${vendor}-${originalIndex}`} style={styles.priceRow}>
                           <div style={styles.vendorColumn}>
-                            {resultIndex === 0 ? getVendorDisplayName(vendor) : ''}
+                            {displayIndex === 0 ? getVendorDisplayName(vendor) : ''}
                           </div>
                           <button
-                            onClick={() => handleSelectPrice(index, vendor, resultIndex)}
+                            onClick={() => handleSelectPrice(index, vendor, originalIndex)}
                             style={result.selected ? styles.checkmarkSelected : styles.checkmark}
                           >
                             {result.selected ? '✓' : ''}
