@@ -32,9 +32,6 @@ const DeckList: React.FC = () => {
     }
   }, [authLoading]);
 
-  const handleRefresh = () => {
-    fetchDecks();
-  };
 
   const handleImport = () => {
     navigate('/import');
@@ -45,21 +42,16 @@ const DeckList: React.FC = () => {
   }
 
   if (!user) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.unauthenticated}>
-          <h1>Welcome to DeckBuilder</h1>
-          <p>Please <Link to="/login" style={styles.loginLink}>sign in</Link> to view and manage your decks.</p>
-        </div>
-      </div>
-    );
+    // Redirect to login page immediately
+    navigate('/login');
+    return <div style={styles.container}>Redirecting to login...</div>;
   }
 
   if (error) {
     return (
       <div style={styles.container}>
         <div style={styles.error}>Error: {error}</div>
-        <button onClick={handleRefresh} style={styles.button}>
+        <button onClick={fetchDecks} style={styles.button}>
           Retry
         </button>
       </div>
@@ -74,9 +66,6 @@ const DeckList: React.FC = () => {
           <div style={styles.buttonGroup}>
             <button onClick={handleImport} style={styles.importButton}>
               + Import
-            </button>
-            <button onClick={handleRefresh} style={styles.button}>
-              Refresh
             </button>
           </div>
           {user && (
@@ -244,15 +233,6 @@ const styles = {
     fontSize: '12px',
     color: '#6c757d',
     fontStyle: 'italic',
-  },
-  unauthenticated: {
-    textAlign: 'center' as const,
-    marginTop: '100px',
-  },
-  loginLink: {
-    color: '#007bff',
-    textDecoration: 'none',
-    fontWeight: 'bold',
   },
   importButton: {
     backgroundColor: '#28a745',
