@@ -577,16 +577,9 @@ const DeckDetails: React.FC = () => {
                       onClick={() => handleTogglePurchased(index)}
                       style={styles.purchasedButton}
                     >
-                      Purchased
+                      ☐ Purchased
                     </button>
                   )}
-                  <button
-                    onClick={() => handleFindAlternates(index)}
-                    disabled={true}
-                    style={{...styles.alternatesButton, opacity: 0.5, cursor: 'not-allowed'}}
-                  >
-                    Find Alternates (Coming Soon)
-                  </button>
                 </div>
               )}
             </div>
