@@ -6,12 +6,10 @@ const transports = [
   new winston.transports.File({ filename: 'logs/combined.log' })
 ];
 
-// Add console transport for non-production
-if (process.env.NODE_ENV !== 'production') {
-  transports.push(new winston.transports.Console({
-    format: winston.format.simple()
-  }));
-}
+// Always add console transport so logs appear in container output
+transports.push(new winston.transports.Console({
+  format: winston.format.simple()
+}));
 
 // Add Seq transport if URL is configured
 if (process.env.SEQ_URL) {

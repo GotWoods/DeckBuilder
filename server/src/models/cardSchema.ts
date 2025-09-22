@@ -14,6 +14,10 @@ export const cardSchema = new Schema({
     type: Boolean,
     default: false
   },
+  colorIdentity: {
+    type: [String],
+    default: []
+  },
   pricing: {
     results: [{
       found: Boolean,
@@ -24,7 +28,8 @@ export const cardSchema = new Schema({
       url: String,
       source: String,
       name: String, // Card name as found by processor
-      quantity: Number // Quantity requested
+      quantity: Number, // Quantity requested
+      selected: Boolean // Whether this pricing option is selected by user
     }],
     processedAt: Date
   }

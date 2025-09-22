@@ -55,8 +55,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = (provider: 'google' | 'facebook') => {
-    window.location.href = `http://localhost:3000/auth/${provider}`;
+  const login = (provider: 'google') => {
+    const baseUrl = process.env.NODE_ENV === 'production'
+      ? 'https://deckbuilder.fly.dev'
+      : 'http://localhost:3000';
+    window.location.href = `${baseUrl}/auth/${provider}`;
   };
 
   const logout = async () => {

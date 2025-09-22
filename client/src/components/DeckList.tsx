@@ -104,13 +104,15 @@ const DeckList: React.FC = () => {
             <Link key={deck._id} to={`/deck/${deck._id}`} style={styles.deckLink}>
               <div style={styles.deckCard}>
               <div style={styles.deckHeader}>
-                <h3>Deck #{deck._id.slice(-6)}</h3>
-                <span style={{
-                  ...styles.status,
-                  ...(deck.Importing ? styles.statusImporting : styles.statusReady)
-                }}>
-                  {deck.Importing ? 'Importing...' : 'Ready'}
-                </span>
+                <h3>{deck.name}</h3>
+                {deck.Importing && (
+                  <span style={{
+                    ...styles.status,
+                    ...styles.statusImporting
+                  }}>
+                    Importing...
+                  </span>
+                )}
               </div>
               
               <div style={styles.deckInfo}>

@@ -43,20 +43,6 @@ const Login: React.FC = () => {
           Sign in with Google
         </button>
 
-        <button
-          onClick={() => login('facebook')}
-          style={{
-            padding: '12px 20px',
-            backgroundColor: '#1877f2',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '16px'
-          }}
-        >
-          Sign in with Facebook
-        </button>
       </div>
 
       <p style={{ marginTop: '30px', color: '#666' }}>

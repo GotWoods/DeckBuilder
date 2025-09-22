@@ -6,11 +6,17 @@ import apiService from '../services/apiService';
 const DeckImport: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [deckName, setDeckName] = useState('');
   const [deckText, setDeckText] = useState('');
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleImport = async () => {
+    if (!deckName.trim()) {
+      setError('Please enter a deck name');
+      return;
+    }
+
     if (!deckText.trim()) {
       setError('Please enter a deck list');
       return;
@@ -21,6 +27,7 @@ const DeckImport: React.FC = () => {
       setError(null);
 
       const response = await apiService.post('/api/import', {
+        name: deckName,
         importData: deckText
       });
 
@@ -58,6 +65,18 @@ const DeckImport: React.FC = () => {
 
       <div style={styles.form}>
         <label style={styles.label}>
+          Deck Name:
+        </label>
+        <input
+          type="text"
+          value={deckName}
+          onChange={(e) => setDeckName(e.target.value)}
+          placeholder="Enter a name for your deck"
+          style={styles.input}
+          disabled={importing}
+        />
+
+        <label style={styles.label}>
           Paste your deck list below:
         </label>
         <textarea
@@ -87,7 +106,7 @@ const DeckImport: React.FC = () => {
           <button
             onClick={handleImport}
             style={styles.importButton}
-            disabled={importing || !deckText.trim()}
+            disabled={importing || !deckName.trim() || !deckText.trim()}
           >
             {importing ? 'Importing...' : 'Import Deck'}
           </button>
@@ -135,6 +154,14 @@ const styles = {
     marginBottom: '10px',
     fontWeight: 'bold' as const,
     fontSize: '16px',
+  },
+  input: {
+    width: '100%',
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    fontSize: '14px',
+    marginBottom: '20px',
   },
   textarea: {
     width: '100%',

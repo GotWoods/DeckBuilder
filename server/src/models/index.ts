@@ -1,6 +1,6 @@
 // Export all interfaces for client use
-export { IPricingResult } from './IPricingResult';
-export { IPricing } from './IPricing';
-export { ICard } from './ICard';
-export { IDeck } from './deckSchema';
-export { IUser } from './IUser';
+export type { IPricingResult } from './IPricingResult';
+export type { IPricing } from './IPricing';
+export type { ICard } from './ICard';
+export type { IDeck } from './deckSchema';
+export type { IUser } from './IUser';

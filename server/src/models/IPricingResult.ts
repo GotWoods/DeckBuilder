@@ -8,4 +8,5 @@ export interface IPricingResult {
   source: string;
   name: string; // Card name as found by processor
   quantity: number; // Quantity requested
+  selected?: boolean; // Whether this pricing option is selected
 }

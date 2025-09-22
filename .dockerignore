@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Development files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs (will be created during build)
+dist/
+build/
+client/dist/
+server/dist/
+
+# Development tools
+.git/
+.gitignore
+README.md
+*.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+*.lcov
+
+# Temporary files
+tmp/
+temp/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Fly.io
+fly.toml
+
+# Development scripts
+scripts/

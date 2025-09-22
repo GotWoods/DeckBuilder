@@ -1,16 +1,21 @@
 import dotenv from 'dotenv';
 import express from 'express';
+import { createServer } from 'http';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import session from 'express-session';
+import path from 'path';
 import passport from './config/passport';
 import connectDB from './config/database';
 import logger from './config/logger';
 import importRoutes from './routes/importRoutes';
 import deckRoutes from './routes/deckRoutes';
 import authRoutes from './routes/authRoutes';
+import cardRoutes from './routes/cardRoutes';
 import { optionalAuth } from './middleware/auth';
 import deckQueue from './utils/deckQueue';
+import socketService from './services/socketService';
+import progressService from './services/progressService';
 
 dotenv.config();
 
@@ -59,11 +64,47 @@ app.use(passport.session());
 // Apply optional auth middleware to get user context
 app.use(optionalAuth);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// API routes
 app.use('/auth', authRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/deck', deckRoutes);
+app.use('/api/cards', cardRoutes);
 
-const server = app.listen(PORT, () => {
+// Serve static files from React build in production
+if (process.env.NODE_ENV === 'production') {
+  const buildPath = path.join(__dirname, '..', 'public');
+  app.use(express.static(buildPath));
+
+  // Serve React app for all non-API routes (but allow /auth/callback for React routing)
+  app.get(/^(?!\/api|\/auth\/(?!callback)|\/health).*/, (req, res) => {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+} else {
+  // Development mode - just serve a simple message
+  app.get('/', (req, res) => {
+    res.json({
+      message: 'DeckBuilder API Server',
+      version: '1.0.0',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+}
+
+// Create HTTP server and initialize Socket.io
+const server = createServer(app);
+socketService.initialize(server);
+
+// Initialize progress service
+progressService.initialize().catch((error) => {
+  logger.error('Failed to initialize progress service:', error);
+});
+
+server.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);
 });
 
@@ -84,7 +125,11 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
     // Close job queue
     await deckQueue.close();
     logger.info('Job queue closed');
-    
+
+    // Close progress service
+    await progressService.close();
+    logger.info('Progress service closed');
+
     logger.info('Graceful shutdown completed');
     process.exit(0);
   } catch (error) {

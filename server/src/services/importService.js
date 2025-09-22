@@ -2,17 +2,27 @@ const Deck = require('../models/deckSchema');
 const deckQueue = require('../utils/deckQueue');
 const logger = require('../config/logger');
 
-const importDeck = async (importData, userId = null) => {
+const importDeck = async (importData, userId = null, deckName) => {
   try {
+    logger.info('Import service called with:', { deckName, userId, importDataLength: importData?.length });
+
     // Create and parse deck
-    const deck = new Deck();
+    const deck = new Deck({
+      name: deckName
+    });
+
+    logger.info('Deck created with name:', { name: deck.name });
+
     deck.import(importData);
+
+    logger.info('After import method, deck name is:', { name: deck.name });
 
     // Associate with user if provided
     if (userId) {
       deck.userId = userId;
     }
 
+    logger.info('About to save deck:', { name: deck.name, userId: deck.userId, cardsCount: deck.Cards?.length });
     const savedDeck = await deck.save();
 
     logger.info(`Saved deck to database: ${savedDeck._id} for user: ${userId || 'anonymous'}`);

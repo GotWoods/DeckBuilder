@@ -15,15 +15,6 @@ router.get('/google/callback',
   handleOAuthCallback
 );
 
-// Facebook OAuth routes
-router.get('/facebook',
-  passport.authenticate('facebook', { scope: ['email'] })
-);
-
-router.get('/facebook/callback',
-  passport.authenticate('facebook', { session: false }),
-  handleOAuthCallback
-);
 
 // Get current user info
 router.get('/me', requireAuth, getCurrentUser);

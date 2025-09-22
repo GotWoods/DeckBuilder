@@ -2,20 +2,50 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Deck } from '../types/deck';
 import { deckService } from '../services';
+import { useSocket } from '../contexts/SocketContext';
+import Toast from './Toast';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
+import AlternateCardsModal from './AlternateCardsModal';
+
+interface ProgressState {
+  active: boolean;
+  progress: number;
+}
+
+// Vendor display name mapping
+const VENDOR_DISPLAY_NAMES: Record<string, string> = {
+  facetoface: 'Face To Face',
+  taps: 'Taps',
+  redclaw: 'Red Claw',
+  prisma: 'Prisma'
+};
 
 const DeckDetails: React.FC = () => {
   const { id: deckId } = useParams<{ id: string }>();
   const [deck, setDeck] = useState<Deck | undefined>();
+
+  // Helper function to get vendor display name
+  const getVendorDisplayName = (vendor: string): string => {
+    return VENDOR_DISPLAY_NAMES[vendor.toLowerCase()] || vendor;
+  };
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showOutOfStock, setShowOutOfStock] = useState<boolean>(false);
+  const [progress, setProgress] = useState<ProgressState>({
+    active: false,
+    progress: 0
+  });
+  const [toastVisible, setToastVisible] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [alternateModalCard, setAlternateModalCard] = useState<{ name: string; index: number } | null>(null);
   const navigate = useNavigate();
+  const { joinDeckRoom, leaveDeckRoom, onProgress, offProgress } = useSocket();
 
   const calculateCheapestVendorStats = (deck: Deck) => {
     const vendorStats: Record<string, number> = {};
 
     deck.Cards.forEach(card => {
-      if (!card.pricing?.groupedByVendor) return;
+      if (!card.pricing?.groupedByVendor || card.purchased) return;
 
       let cheapestPrice = Infinity;
       let cheapestVendor = '';
@@ -39,6 +69,72 @@ const DeckDetails: React.FC = () => {
     });
 
     return vendorStats;
+  };
+
+  const calculateInStockVendorStats = (deck: Deck) => {
+    const vendorStats: Record<string, number> = {};
+
+    deck.Cards.forEach(card => {
+      if (!card.pricing?.groupedByVendor || card.purchased) return;
+
+      // Count which vendors have this card in stock
+      Object.entries(card.pricing.groupedByVendor).forEach(([vendor, results]) => {
+        const hasInStock = results.some(result => result.inStock);
+        if (hasInStock) {
+          vendorStats[vendor] = (vendorStats[vendor] || 0) + 1;
+        }
+      });
+    });
+
+    return vendorStats;
+  };
+
+  const calculateSelectedVendorStats = (deck: Deck) => {
+    const vendorStats: Record<string, number> = {};
+
+    deck.Cards.forEach(card => {
+      if (!card.pricing?.groupedByVendor || card.purchased) return;
+
+      // Count which vendors have selected pricing for this card
+      Object.entries(card.pricing.groupedByVendor).forEach(([vendor, results]) => {
+        const hasSelected = results.some(result => result.selected);
+        if (hasSelected) {
+          vendorStats[vendor] = (vendorStats[vendor] || 0) + 1;
+        }
+      });
+    });
+
+    return vendorStats;
+  };
+
+  const getSelectedCardsByVendor = (deck: Deck, vendor: string): string[] => {
+    const selectedCards: string[] = [];
+
+    deck.Cards.forEach(card => {
+      if (!card.pricing?.groupedByVendor || card.purchased) return;
+
+      const vendorResults = card.pricing.groupedByVendor[vendor];
+      if (vendorResults) {
+        const hasSelected = vendorResults.some(result => result.selected);
+        if (hasSelected) {
+          selectedCards.push(`1 ${card.Name}`);
+        }
+      }
+    });
+
+    return selectedCards;
+  };
+
+  const handleCopySelectedCards = async (vendor: string) => {
+    const selectedCards = getSelectedCardsByVendor(deck!, vendor);
+    const cardList = selectedCards.join('\n');
+
+    try {
+      await navigator.clipboard.writeText(cardList);
+      setToastVisible(true);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
   };
 
   useEffect(() => {
@@ -98,20 +194,192 @@ const DeckDetails: React.FC = () => {
     fetchDeck();
   }, [deckId]);
 
+  // Socket.io setup for real-time progress
+  useEffect(() => {
+    if (!deckId) return;
+
+    // Join deck-specific room
+    joinDeckRoom(deckId);
+
+    // Progress event handler
+    const handleProgress = (event: any) => {
+      console.log('Progress event received:', event);
+
+      if (event.deckId !== deckId) return;
+
+      switch (event.type) {
+        case 'start':
+          setProgress({
+            active: true,
+            progress: 0
+          });
+          break;
+
+        case 'batch':
+        case 'card':
+          setProgress(prev => ({
+            ...prev,
+            progress: event.progress || 0
+          }));
+          break;
+
+        case 'complete':
+          setProgress({
+            active: false,
+            progress: 100
+          });
+          // Refresh deck data after completion
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+          break;
+
+        case 'error':
+          setProgress({
+            active: false,
+            progress: 0
+          });
+          setError(event.message);
+          break;
+      }
+    };
+
+    // Subscribe to progress events
+    onProgress(handleProgress);
+
+    // Initialize progress state if deck is currently importing
+    if (deck?.Importing) {
+      setProgress({
+        active: true,
+        progress: 0
+      });
+    }
+
+    // Cleanup on unmount
+    return () => {
+      offProgress(handleProgress);
+      leaveDeckRoom(deckId);
+    };
+  }, [deckId, deck?.Importing, joinDeckRoom, leaveDeckRoom, onProgress, offProgress]);
+
+  const handleSelectPrice = async (cardIndex: number, vendor: string, resultIndex: number) => {
+    if (!deck || !deckId) return;
+
+    const updatedDeck = { ...deck };
+    const card = updatedDeck.Cards[cardIndex];
+
+    if (!card.pricing?.groupedByVendor) return;
+
+    // Clear all selections for this card
+    Object.values(card.pricing.groupedByVendor).forEach(results => {
+      results.forEach(result => {
+        result.selected = false;
+      });
+    });
+
+    // Set the selected option
+    if (card.pricing.groupedByVendor[vendor] && card.pricing.groupedByVendor[vendor][resultIndex]) {
+      card.pricing.groupedByVendor[vendor][resultIndex].selected = true;
+    }
+
+    setDeck(updatedDeck);
+
+    // Save selection to database
+    try {
+      await deckService.updateSelectedPricing(deckId, cardIndex, vendor, resultIndex);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save selected pricing';
+      setError(errorMessage);
+    }
+  };
+
+  const handleTogglePurchased = async (cardIndex: number) => {
+    if (!deckId) return;
+
+    try {
+      const result = await deckService.toggleCardPurchased(deckId, cardIndex);
+      // Update the deck data to show new state
+      if (deck) {
+        const updatedDeck = { ...deck };
+        updatedDeck.Cards[cardIndex].purchased = result.purchased;
+        setDeck(updatedDeck);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to toggle card purchase status';
+      setError(errorMessage);
+    }
+  };
+
   const handleRefreshPrices = async () => {
     if (!deckId) return;
 
     try {
       console.log('Starting price refresh for deck:', deckId);
       await deckService.refreshDeckPricing(deckId);
-      console.log('Price refresh completed, navigating to home');
-      navigate('/');
+      console.log('Price refresh initiated successfully');
+      // Stay on the page - progress will be shown via WebSocket events
+      // The deck will automatically refresh when import completes
     } catch (err) {
       console.error('Error during price refresh:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh pricing';
       setError(errorMessage);
-      // Still navigate even if there's an error, since the refresh might have been initiated
+    }
+  };
+
+  const handleDeleteDeck = async () => {
+    if (!deckId) return;
+
+    try {
+      await deckService.deleteDeck(deckId);
       navigate('/');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete deck';
+      setError(errorMessage);
+      setDeleteModalOpen(false);
+    }
+  };
+
+  const handleFindAlternates = (cardIndex: number) => {
+    const card = deck?.Cards[cardIndex];
+    if (!card) return;
+
+    setAlternateModalCard({
+      name: card.Name,
+      index: cardIndex
+    });
+  };
+
+  const handleCloseAlternatesModal = () => {
+    setAlternateModalCard(null);
+  };
+
+  const handleSubstitute = async (selectedCard: any) => {
+    if (!deck || !alternateModalCard) return;
+
+    try {
+      await deckService.substituteCard(deck._id, alternateModalCard.index, selectedCard);
+
+      // Update the local deck state with the substituted card
+      setDeck(prevDeck => {
+        if (!prevDeck) return prevDeck;
+        const updatedCards = [...prevDeck.Cards];
+        updatedCards[alternateModalCard.index] = {
+          ...updatedCards[alternateModalCard.index],
+          Name: selectedCard.name,
+          pricing: null // Clear pricing since this is a new card
+        };
+        return { ...prevDeck, Cards: updatedCards };
+      });
+
+      // Close the modal
+      handleCloseAlternatesModal();
+
+      // Show success toast
+      setToastVisible(true);
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to substitute card';
+      setError(errorMessage);
     }
   };
 
@@ -138,37 +406,124 @@ const DeckDetails: React.FC = () => {
   }
 
   return (
-    <div style={styles.container}>
+    <>
+      <Toast
+        message="Copied to clipboard"
+        isVisible={toastVisible}
+        onClose={() => setToastVisible(false)}
+      />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        deckName={deck?.name || ''}
+        onConfirm={handleDeleteDeck}
+        onCancel={() => setDeleteModalOpen(false)}
+      />
+      <div style={styles.container}>
       <div style={styles.header}>
         <Link to="/" style={styles.backButton}>← Back to Decks</Link>
-        <h1>Deck #{deck._id.slice(-6)}</h1>
-        <span style={{
-          ...styles.status,
-          ...(deck.Importing ? styles.statusImporting : styles.statusReady)
-        }}>
-          {deck.Importing ? 'Importing...' : 'Ready'}
-          
-        </span>
-        <button onClick={handleRefreshPrices} >Refresh Prices</button>
+        <h1>{deck.name}</h1>
+        {progress.active ? (
+          <div style={styles.progressContainer}>
+            <div style={styles.progressText}>Updating Prices</div>
+            <div style={styles.progressBar}>
+              <div
+                style={{
+                  ...styles.progressFill,
+                  width: `${progress.progress}%`
+                }}
+              />
+            </div>
+          </div>
+        ) : deck.Importing ? (
+          <span style={{
+            ...styles.status,
+            ...styles.statusImporting
+          }}>
+            Importing...
+          </span>
+        ) : null}
+        <div style={styles.buttonGroup}>
+          <button
+            onClick={handleRefreshPrices}
+            disabled={progress.active || deck.Importing}
+            style={{
+              ...styles.refreshButton,
+              ...(progress.active || deck.Importing ? styles.refreshButtonDisabled : {})
+            }}
+          >
+            {progress.active || deck.Importing ? 'Processing...' : 'Refresh Prices'}
+          </button>
+          <button
+            onClick={() => setDeleteModalOpen(true)}
+            disabled={progress.active || deck.Importing}
+            style={{
+              ...styles.deleteButton,
+              ...(progress.active || deck.Importing ? styles.deleteButtonDisabled : {})
+            }}
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       <div style={styles.deckInfo}>
         <div style={styles.deckInfoLeft}>
-          <p><strong>Total Cards:</strong> {deck.Cards.length}</p>
+          <p><strong>Total Cards:</strong> {deck.Cards.reduce((total, card) => total + card.Quantity, 0)}</p>
           <p><strong>Created:</strong> {new Date(deck.createdAt).toLocaleDateString()}</p>
         </div>
         {!deck.Importing && (
           <div style={styles.vendorSummary}>
-            <div style={styles.vendorSummaryTitle}>Cheapest In-Stock Vendor:</div>
-            <div style={styles.vendorStats}>
-              {Object.entries(calculateCheapestVendorStats(deck))
-                .sort(([,a], [,b]) => b - a) // Sort by count descending
-                .map(([vendor, count]) => (
-                  <div key={vendor} style={styles.vendorStat}>
-                    <span style={styles.vendorName}>{vendor}</span>
-                    <span style={styles.vendorCount}>{count}</span>
-                  </div>
-                ))}
+            <div style={styles.vendorSummaryContainer}>
+              <div style={styles.vendorColumn}>
+                <div style={styles.vendorColumnTitle}>In Stock:</div>
+                <div style={styles.vendorStats}>
+                  {Object.entries(calculateInStockVendorStats(deck))
+                    .sort(([,a], [,b]) => b - a) // Sort by count descending
+                    .map(([vendor, count]) => (
+                      <div key={vendor} style={styles.vendorStat}>
+                        <span style={styles.vendorName}>{getVendorDisplayName(vendor)}</span>
+                        <span style={styles.vendorCount}>{count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              <div style={styles.vendorColumn}>
+                <div style={styles.vendorColumnTitle}>Cheapest:</div>
+                <div style={styles.vendorStats}>
+                  {Object.entries(calculateCheapestVendorStats(deck))
+                    .sort(([,a], [,b]) => b - a) // Sort by count descending
+                    .map(([vendor, count]) => (
+                      <div key={vendor} style={styles.vendorStat}>
+                        <span style={styles.vendorName}>{getVendorDisplayName(vendor)}</span>
+                        <span style={styles.vendorCount}>{count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              <div style={styles.vendorColumn}>
+                <div style={styles.vendorColumnTitle}>Selected:</div>
+                <div style={styles.vendorStats}>
+                  {Object.entries(calculateSelectedVendorStats(deck))
+                    .sort(([,a], [,b]) => b - a) // Sort by count descending
+                    .map(([vendor, count]) => (
+                      <div key={vendor} style={styles.vendorStatWithCopy}>
+                        <div style={styles.vendorStat}>
+                          <span style={styles.vendorName}>{getVendorDisplayName(vendor)}</span>
+                          <span style={styles.vendorCount}>{count}</span>
+                        </div>
+                        {count > 0 && (
+                          <button
+                            onClick={() => handleCopySelectedCards(vendor)}
+                            style={styles.copyButton}
+                            title={`Copy selected cards from ${getVendorDisplayName(vendor)}`}
+                          >
+                            📋
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -208,9 +563,35 @@ const DeckDetails: React.FC = () => {
             <div style={styles.cardHeader}>
               <div style={styles.cardQuantity}>{card.Quantity}x</div>
               <div style={styles.cardName}>{card.Name}</div>
+              {!progress.active && (
+                <div style={styles.cardActions}>
+                  {card.purchased ? (
+                    <button
+                      onClick={() => handleTogglePurchased(index)}
+                      style={styles.purchasedLabel}
+                    >
+                      ✓ Purchased
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleTogglePurchased(index)}
+                      style={styles.purchasedButton}
+                    >
+                      Purchased
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleFindAlternates(index)}
+                    disabled={true}
+                    style={{...styles.alternatesButton, opacity: 0.5, cursor: 'not-allowed'}}
+                  >
+                    Find Alternates (Coming Soon)
+                  </button>
+                </div>
+              )}
             </div>
             
-            {card.pricing?.groupedByVendor && (() => {
+            {!card.purchased && card.pricing?.groupedByVendor && (() => {
               // Filter results based on showOutOfStock toggle
               const filteredGroupedByVendor = Object.entries(card.pricing.groupedByVendor).reduce((acc, [vendor, results]) => {
                 const filteredResults = showOutOfStock
@@ -225,21 +606,42 @@ const DeckDetails: React.FC = () => {
 
               if (Object.keys(filteredGroupedByVendor).length === 0) return null;
 
+              // Find the cheapest in-stock price across all vendors
+              let cheapestPrice = Infinity;
+              Object.values(filteredGroupedByVendor).forEach(results => {
+                const inStockResults = results.filter(result => result.inStock);
+                if (inStockResults.length > 0) {
+                  const vendorCheapestPrice = inStockResults[0].price; // Already sorted by price
+                  if (vendorCheapestPrice < cheapestPrice) {
+                    cheapestPrice = vendorCheapestPrice;
+                  }
+                }
+              });
+
               return (
                 <div style={styles.cardPricing}>
                   {Object.entries(filteredGroupedByVendor).map(([vendor, results]) => (
-                    <div key={vendor} style={styles.vendorGroup}>
-                      <div style={styles.vendorHeader}>{vendor}</div>
-                      {results.map((result, resultIndex) => (
-                        <div key={resultIndex} style={styles.priceItem}>
-                          <span style={styles.priceValue}>
+                    results.map((result, resultIndex) => {
+                      const isCheapest = result.inStock && result.price === cheapestPrice;
+                      return (
+                        <div key={`${vendor}-${resultIndex}`} style={styles.priceRow}>
+                          <div style={styles.vendorColumn}>
+                            {resultIndex === 0 ? getVendorDisplayName(vendor) : ''}
+                          </div>
+                          <button
+                            onClick={() => handleSelectPrice(index, vendor, resultIndex)}
+                            style={result.selected ? styles.checkmarkSelected : styles.checkmark}
+                          >
+                            {result.selected ? '✓' : ''}
+                          </button>
+                          <span style={isCheapest ? styles.priceValueCheapest : styles.priceValue}>
                             ${(result.price / 100).toFixed(2)}
                             {!result.inStock && <span style={styles.outOfStock}> (OOS)</span>}
                           </span>
                           <span style={styles.priceSet}>{result.set || '-'}</span>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })
                   ))}
                   <div style={styles.priceTimestamp}>
                     Updated: {new Date(card.pricing.processedAt).toLocaleDateString()}
@@ -247,10 +649,23 @@ const DeckDetails: React.FC = () => {
                 </div>
               );
             })()}
+
           </div>
         ))}
       </div>
     </div>
+
+    {/* Alternate Cards Modal */}
+    {alternateModalCard && deck && (
+      <AlternateCardsModal
+        cardName={alternateModalCard.name}
+        deckColorIdentity={deck.colorIdentity || []}
+        excludeCards={deck.Cards.map(card => card.Name.toLowerCase())}
+        onSubstitute={handleSubstitute}
+        onClose={handleCloseAlternatesModal}
+      />
+    )}
+    </>
   );
 };
 
@@ -307,7 +722,23 @@ const styles = {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'flex-end',
-    minWidth: '250px',
+    minWidth: '500px',
+  },
+  vendorSummaryContainer: {
+    display: 'flex',
+    gap: '15px',
+  },
+  vendorColumn: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    minWidth: '140px',
+  },
+  vendorColumnTitle: {
+    fontSize: '14px',
+    fontWeight: 'bold',
+    color: '#495057',
+    marginBottom: '8px',
   },
   vendorSummaryTitle: {
     fontSize: '14px',
@@ -344,6 +775,28 @@ const styles = {
     borderRadius: '12px',
     minWidth: '20px',
     textAlign: 'center' as const,
+  },
+  vendorStatWithCopy: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  copyButton: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '14px',
+    padding: '2px',
+    borderRadius: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.7,
+    transition: 'opacity 0.2s, background-color 0.2s',
+    ':hover': {
+      opacity: 1,
+      backgroundColor: '#f8f9fa',
+    }
   },
   cardList: {
     marginTop: '20px',
@@ -418,35 +871,86 @@ const styles = {
     fontSize: '16px',
     color: '#333',
   },
+  cardActions: {
+    marginLeft: '15px',
+    display: 'flex',
+    gap: '10px',
+  },
+  purchasedButton: {
+    backgroundColor: '#28a745',
+    color: 'white',
+    border: 'none',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 'bold',
+  },
+  purchasedLabel: {
+    color: '#28a745',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    padding: '6px 12px',
+    backgroundColor: '#d4edda',
+    borderRadius: '4px',
+    border: '1px solid #c3e6cb',
+    cursor: 'pointer',
+  },
   cardPricing: {
     display: 'flex',
     flexDirection: 'column' as const,
     marginTop: '8px',
   },
-  vendorGroup: {
-    marginBottom: '12px',
+  priceRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '4px',
+    paddingLeft: '12px',
   },
-  vendorHeader: {
+  vendorColumn: {
+    minWidth: '100px',
     fontSize: '14px',
     fontWeight: 'bold',
     color: '#495057',
-    marginBottom: '6px',
-    paddingBottom: '4px',
-    borderBottom: '1px solid #e0e0e0',
+    textAlign: 'left' as const,
   },
-  priceItem: {
-    display: 'grid',
-    gridTemplateColumns: '120px 1fr',
-    gap: '12px',
-    marginBottom: '4px',
+  checkmark: {
+    backgroundColor: 'transparent',
+    border: '1px solid #dee2e6',
+    borderRadius: '50%',
+    width: '20px',
+    height: '20px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    display: 'flex',
     alignItems: 'center',
-    paddingLeft: '12px',
+    justifyContent: 'center',
+    color: '#6c757d',
+  },
+  checkmarkSelected: {
+    backgroundColor: '#28a745',
+    border: '1px solid #28a745',
+    borderRadius: '50%',
+    width: '20px',
+    height: '20px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
   },
   priceVendor: {
     fontSize: '12px',
     color: '#6c757d',
   },
   priceValue: {
+    fontSize: '14px',
+    fontWeight: 'bold',
+    color: '#6c757d',
+  },
+  priceValueCheapest: {
     fontSize: '14px',
     fontWeight: 'bold',
     color: '#28a745',
@@ -473,6 +977,75 @@ const styles = {
     backgroundColor: '#f8d7da',
     border: '1px solid #f5c6cb',
     borderRadius: '4px',
+  },
+  progressContainer: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'flex-end',
+    minWidth: '300px',
+  },
+  progressText: {
+    fontSize: '14px',
+    color: '#495057',
+    marginBottom: '8px',
+    fontWeight: 'bold' as const,
+  },
+  progressBar: {
+    width: '100%',
+    height: '8px',
+    backgroundColor: '#e9ecef',
+    borderRadius: '4px',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#007bff',
+    transition: 'width 0.3s ease',
+    borderRadius: '4px',
+  },
+  refreshButton: {
+    padding: '8px 16px',
+    backgroundColor: '#007bff',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 'bold',
+  },
+  refreshButtonDisabled: {
+    backgroundColor: '#6c757d',
+    cursor: 'not-allowed',
+    opacity: 0.6,
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '10px',
+  },
+  deleteButton: {
+    padding: '8px 16px',
+    backgroundColor: '#dc3545',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 'bold',
+  },
+  deleteButtonDisabled: {
+    backgroundColor: '#6c757d',
+    cursor: 'not-allowed',
+    opacity: 0.6,
+  },
+  alternatesButton: {
+    padding: '6px 12px',
+    backgroundColor: '#6f42c1',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 'bold',
   },
 };
 

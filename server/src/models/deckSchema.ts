@@ -3,14 +3,20 @@ import { cardSchema } from './cardSchema';
 import { ICard } from './ICard';
 
 export interface IDeck extends Document {
+  name: string;
   Cards: ICard[];
   Importing: boolean;
   userId?: string;
   createdAt: Date;
+  colorIdentity: string[];
   import(importData: string): void;
 }
 
 const deckSchema = new Schema({
+  name: {
+    type: String,
+    required: true
+  },
   Cards: [cardSchema],
   Importing: {
     type: Boolean,
@@ -24,6 +30,10 @@ const deckSchema = new Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  colorIdentity: {
+    type: [String],
+    default: []
   }
 });
 
