@@ -3,6 +3,7 @@ const TapsProcessor = require('../workers/processors/tapsProcessor');
 const RedClawProcessor = require('../workers/processors/redClawProcessor');
 const PrismaProcessor = require('../workers/processors/prismaProcessor');
 const TimeVaultProcessor = require('../workers/processors/timeVaultProcessor');
+const CerberusProcessor = require('../workers/processors/cerberusProcessor');
 
 class ProcessorRegistry {
   constructor() {
@@ -17,6 +18,7 @@ class ProcessorRegistry {
     this.processors.push(new RedClawProcessor());
     this.processors.push(new PrismaProcessor());
     this.processors.push(new TimeVaultProcessor());
+    this.processors.push(new CerberusProcessor());
   }
 
   getProcessors() {

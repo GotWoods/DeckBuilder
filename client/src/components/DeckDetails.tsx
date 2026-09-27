@@ -17,7 +17,8 @@ const VENDOR_DISPLAY_NAMES: Record<string, string> = {
   facetoface: 'Face To Face',
   taps: 'Taps',
   redclaw: 'Red Claw',
-  prisma: 'Prisma'
+  prisma: 'Prisma',
+  cerberus: 'Cerberus'
 };
 
 const DeckDetails: React.FC = () => {
