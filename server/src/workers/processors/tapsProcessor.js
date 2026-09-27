@@ -477,107 +477,56 @@ class TapsProcessor extends BaseProcessor {
 
   async processCards(cards) {
     const results = [];
-    
+
     for (const card of cards) {
       this.logger.debug(`Processing ${card.Quantity}x ${card.Name} with Taps`);
-      
+
       const priceData = await this.searchCard(card.Name);
-      
-      if (priceData.found && priceData.prices.length > 0) {
-        // Group prices by set, then get best price per set
-        const pricesBySet = {};
+      const listings = priceData.found ? priceData.prices.filter(price => price.price > 0) : [];
 
-        for (const price of priceData.prices) {
-          // Extract set info from display name (e.g., "Lightning Bolt [Anthologies]" or "Sol Ring [Set] Extra Text")
-          const setMatch = price.displayName?.match(/\[([^\]]+)\]/);
-          const setName = setMatch ? setMatch[1] : 'Unknown Set';
+      if (listings.length > 0) {
+        // One result per listing; the worker reduces these for display
+        for (const listing of listings) {
+          const setMatch = listing.displayName?.match(/\[([^\]]+)\]/);
+          const firstVariant = listing.variantInfo?.[0];
 
-          // Create unique key combining set name and price to avoid grouping different variants
-          const groupKey = `${setName}_$${price.price}`;
-
-          // Debug in-stock items specifically
-          if (price.stock > 0) {
-            this.logger.info(`Taps: "${card.Name}" - IN-STOCK ITEM: "${price.displayName}" -> Set: "${setName}", Stock: ${price.stock}, Price: $${price.price}, GroupKey: "${groupKey}"`);
-          }
-
-          this.logger.debug(`Taps: "${card.Name}" - Display name: "${price.displayName}" -> Extracted set: "${setName}"`);
-
-          // Prioritize in-stock items, then lowest price (but only group identical prices)
-          const currentBest = pricesBySet[groupKey];
-          const shouldReplace = !currentBest ||
-            (price.stock > 0 && currentBest.stock === 0) || // Prefer in-stock over out-of-stock
-            (price.stock > 0 && currentBest.stock > 0 && price.stock > currentBest.stock); // Both in-stock, prefer higher stock
-
-          if (shouldReplace) {
-            pricesBySet[groupKey] = { ...price, set: setName };
-            this.logger.info(`Taps: "${card.Name}" - Updated best for group "${groupKey}": Stock ${price.stock}, Price $${price.price}`);
-          }
-        }
-
-        this.logger.info(`Taps: "${card.Name}" - Found ${Object.keys(pricesBySet).length} unique sets: ${Object.keys(pricesBySet).join(', ')}`);
-
-        // Create a result for each set
-        for (const bestPriceForSet of Object.values(pricesBySet)) {
-          // Determine stock status using enhanced API data
-          let inStock = false;
-          let condition = 'Unknown';
-
-          // Use the stock field from API as primary source
-          if (bestPriceForSet.stock !== null && bestPriceForSet.stock !== undefined) {
-            // Primary: Use stock field from API
-            inStock = bestPriceForSet.stock > 0;
-            this.logger.info(`Taps: "${card.Name}" - Using API stock field: ${bestPriceForSet.stock}, InStock: ${inStock}`);
-          } else if (bestPriceForSet.inventoryLevels && Array.isArray(bestPriceForSet.inventoryLevels)) {
-            // Fallback: Use inventoryLevels if available
-            const totalInventory = bestPriceForSet.inventoryLevels.reduce((total, level) => total + (level.quantity || 0), 0);
-            inStock = totalInventory > 0;
-            this.logger.info(`Taps: "${card.Name}" - Using inventoryLevels: ${totalInventory}, InStock: ${inStock}`);
-          } else if (bestPriceForSet.variantInfo && Array.isArray(bestPriceForSet.variantInfo)) {
-            // Fallback: Use variantInfo if available
-            const variantsWithStock = bestPriceForSet.variantInfo.filter(v => v.inventory_quantity > 0);
-            inStock = variantsWithStock.length > 0;
-            const totalVariantStock = bestPriceForSet.variantInfo.reduce((total, variant) => total + (variant.inventory_quantity || 0), 0);
-            this.logger.info(`Taps: "${card.Name}" - Using variantInfo: ${totalVariantStock}, InStock: ${inStock}`);
-          } else if (bestPriceForSet.availability) {
-            // Final fallback: Check availability field
-            inStock = bestPriceForSet.availability === 'in_stock' || bestPriceForSet.availability === true;
-            this.logger.info(`Taps: "${card.Name}" - Using availability: ${bestPriceForSet.availability}, InStock: ${inStock}`);
-          } else {
-            this.logger.info(`Taps: "${card.Name}" - No inventory data available, assuming out of stock`);
-          }
-
-          // Extract condition from variantInfo if available
-          if (bestPriceForSet.variantInfo && bestPriceForSet.variantInfo.length > 0) {
-            const firstVariant = bestPriceForSet.variantInfo[0];
-            condition = firstVariant.condition || firstVariant.title || 'Unknown';
-          }
-
-          const cardResult = new CardResult({
+          results.push(new CardResult({
             name: card.Name,
             quantity: card.Quantity,
-            price: Math.round(bestPriceForSet.price * 100), // Convert to cents
-            set: bestPriceForSet.set,
-            condition: condition,
-            inStock: inStock,
+            price: Math.round(listing.price * 100), // Convert to cents
+            set: setMatch ? setMatch[1] : 'Unknown Set',
+            condition: firstVariant?.condition || firstVariant?.title || 'Unknown',
+            inStock: this.isInStock(listing),
             source: 'taps',
-            url: bestPriceForSet.url
-          });
-
-          this.logger.debug(`Taps: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.price}`);
-          results.push(cardResult);
+            url: listing.url
+          }));
         }
 
-        this.logger.info(`Taps: "${card.Name}" - Created ${Object.keys(pricesBySet).length} CardResult objects`);
+        this.logger.info(`Taps: "${card.Name}" - Created ${listings.length} CardResult objects`);
       } else {
         this.logger.info(`Taps: "${card.Name}" - No prices found, creating not-found result`);
         results.push(this.createNotFoundResult(card, 'taps'));
       }
-      
+
       // Add delay to be respectful to the API
       await this.delay(500);
     }
-    
+
     return results;
+  }
+
+  // Stock field is the primary source, falling back to inventory levels, variants, then availability
+  isInStock(listing) {
+    if (listing.stock !== null && listing.stock !== undefined) {
+      return listing.stock > 0;
+    }
+    if (Array.isArray(listing.inventoryLevels)) {
+      return listing.inventoryLevels.reduce((total, level) => total + (level.quantity || 0), 0) > 0;
+    }
+    if (Array.isArray(listing.variantInfo)) {
+      return listing.variantInfo.some(variant => variant.inventory_quantity > 0);
+    }
+    return listing.availability === 'in_stock' || listing.availability === true;
   }
 
 }

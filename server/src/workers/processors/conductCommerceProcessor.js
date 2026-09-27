@@ -132,56 +132,26 @@ class ConductCommerceProcessor extends BaseProcessor {
         // Skip variants with no price set
         const variants = (listing.variants || []).filter(variant => parseFloat(variant.price) > 0);
 
-        // Check if any variants have quantity > 0
-        const inStockVariants = variants.filter(variant => variant.quantity > 0);
-
-        if (inStockVariants.length > 0) {
-          // If there are in-stock variants, create separate entries for each
-          for (const variant of inStockVariants) {
-            prices.push({
-              id: `${listing.inventoryID}-${variant.id}`,
-              productId: listing.inventoryID,
-              name: inventoryName,
-              displayName: `${inventoryName} [${setName}] - ${variant.name}`,
-              price: parseFloat(variant.price || 0),
-              url: null, // Conduct Commerce doesn't provide direct URLs
-              imageUrl: listing.image ? `https://${this.host}/images/${listing.image}` : null,
-              stock: parseInt(variant.quantity || 0),
-              availability: 'in_stock',
-              condition: variant.name || 'Unknown',
-              vendor: this.vendorName,
-              productType: 'MTG Single',
-              set: setName,
-              sku: null,
-              variantId: variant.id
-            });
-
-            this.logger.debug(`${this.vendorName}: Added in-stock variant for "${inventoryName}" [${setName}] - ${variant.name}: $${variant.price}, Qty: ${variant.quantity}`);
-          }
-        } else {
-          // If all variants have 0 quantity, create one out-of-stock entry
-          const defaultVariant = variants.find(v => v.default === 1) || variants[0];
-          if (defaultVariant) {
-            prices.push({
-              id: `${listing.inventoryID}-out-of-stock`,
-              productId: listing.inventoryID,
-              name: inventoryName,
-              displayName: `${inventoryName} [${setName}]`,
-              price: parseFloat(defaultVariant.price || 0),
-              url: null,
-              imageUrl: listing.image ? `https://${this.host}/images/${listing.image}` : null,
-              stock: 0,
-              availability: 'out_of_stock',
-              condition: defaultVariant.name || 'Unknown',
-              vendor: this.vendorName,
-              productType: 'MTG Single',
-              set: setName,
-              sku: null,
-              variantId: defaultVariant.id
-            });
-
-            this.logger.debug(`${this.vendorName}: Added out-of-stock entry for "${inventoryName}" [${setName}]: $${defaultVariant.price}`);
-          }
+        // One entry per priced variant, in stock or not
+        for (const variant of variants) {
+          const stock = parseInt(variant.quantity || 0);
+          prices.push({
+            id: `${listing.inventoryID}-${variant.id}`,
+            productId: listing.inventoryID,
+            name: inventoryName,
+            displayName: `${inventoryName} [${setName}] - ${variant.name}`,
+            price: parseFloat(variant.price),
+            url: null, // Conduct Commerce doesn't provide direct URLs
+            imageUrl: listing.image ? `https://${this.host}/images/${listing.image}` : null,
+            stock,
+            availability: stock > 0 ? 'in_stock' : 'out_of_stock',
+            condition: variant.name || 'Unknown',
+            vendor: this.vendorName,
+            productType: 'MTG Single',
+            set: setName,
+            sku: null,
+            variantId: variant.id
+          });
         }
       }
 
@@ -212,50 +182,21 @@ class ConductCommerceProcessor extends BaseProcessor {
       const priceData = await this.searchCard(card.Name);
 
       if (priceData.found && priceData.prices.length > 0) {
-        // Group prices by set and price, then get best per group
-        const pricesByGroup = {};
-
-        for (const price of priceData.prices) {
-          const setName = price.set || 'Unknown Set';
-
-          // Create unique key combining set name and price to avoid grouping different variants
-          const groupKey = `${setName}_$${price.price}`;
-
-          // Prioritize in-stock items, then higher stock
-          const currentBest = pricesByGroup[groupKey];
-          const shouldReplace = !currentBest ||
-            (price.stock > 0 && currentBest.stock === 0) || // Prefer in-stock over out-of-stock
-            (price.stock > 0 && currentBest.stock > 0 && price.stock > currentBest.stock); // Both in-stock, prefer higher stock
-
-          if (shouldReplace) {
-            pricesByGroup[groupKey] = { ...price, set: setName };
-            this.logger.debug(`${this.vendorName}: Updated best for group "${groupKey}": Stock ${price.stock}, Price $${price.price}`);
-          }
-        }
-
-        this.logger.info(`${this.vendorName}: "${card.Name}" - Found ${Object.keys(pricesByGroup).length} unique groups: ${Object.keys(pricesByGroup).join(', ')}`);
-
-        // Create a result for each group
-        for (const bestPriceForGroup of Object.values(pricesByGroup)) {
-          // Determine stock status
-          const inStock = bestPriceForGroup.stock > 0;
-
-          const cardResult = new CardResult({
+        // One result per variant; the worker reduces these for display
+        for (const listing of priceData.prices) {
+          results.push(new CardResult({
             name: card.Name,
             quantity: card.Quantity,
-            price: Math.round(bestPriceForGroup.price * 100), // Convert to cents
-            set: bestPriceForGroup.set,
-            condition: bestPriceForGroup.condition || 'Unknown',
-            inStock: inStock,
+            price: Math.round(listing.price * 100), // Convert to cents
+            set: listing.set,
+            condition: listing.condition || 'Unknown',
+            inStock: listing.stock > 0,
             source: this.source,
-            url: bestPriceForGroup.url
-          });
-
-          this.logger.debug(`${this.vendorName}: Creating result for "${card.Name}" from set "${bestPriceForGroup.set}" - $${bestPriceForGroup.price}`);
-          results.push(cardResult);
+            url: listing.url
+          }));
         }
 
-        this.logger.info(`${this.vendorName}: "${card.Name}" - Created ${Object.keys(pricesByGroup).length} CardResult objects`);
+        this.logger.info(`${this.vendorName}: "${card.Name}" - Created ${priceData.prices.length} CardResult objects`);
       } else {
         this.logger.info(`${this.vendorName}: "${card.Name}" - No prices found, creating not-found result`);
         results.push(this.createNotFoundResult(card, this.source));

@@ -31,6 +31,12 @@ export const cardSchema = new Schema({
       quantity: Number, // Quantity requested
       selected: Boolean // Whether this pricing option is selected by user
     }],
+    stats: {
+      min: Number, // in cents, across all listings including out of stock
+      max: Number,
+      avg: Number,
+      count: Number
+    },
     processedAt: Date
   }
 });

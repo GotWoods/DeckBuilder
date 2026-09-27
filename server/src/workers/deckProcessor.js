@@ -5,6 +5,7 @@ const Deck = require('../models/deckSchema');
 const logger = require('../config/logger');
 const ProcessorRegistry = require('../utils/processorRegistry');
 const { createBatches } = require('../utils/arrayUtils');
+const { summarizePricing } = require('../utils/pricingSummary');
 const Redis = require('redis');
 
 // Dynamic import for ES6 module
@@ -227,13 +228,15 @@ deckQueue.process('processDeck', async (job) => {
       for (let i = 0; i < batch.items.length; i++) {
         const card = batch.items[i];
 
-        // Store CardResult objects directly
+        // Stats cover every listing; stored results are reduced for display
+        const { results: storedResults, stats } = summarizePricing(cardResults[i]);
         card.pricing = {
-          results: cardResults[i],
+          results: storedResults,
+          stats,
           processedAt: new Date()
         };
 
-        logger.info(`Storing pricing for "${card.Name}": ${cardResults[i].length} results from sources: ${cardResults[i].map(r => r.source).join(', ')}`);
+        logger.info(`Storing pricing for "${card.Name}": ${storedResults.length} of ${cardResults[i].length} listings from sources: ${[...new Set(storedResults.map(r => r.source))].join(', ')}`);
       }
       
       // Save the deck with updated pricing for this batch

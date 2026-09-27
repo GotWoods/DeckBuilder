@@ -177,46 +177,25 @@ class FaceToFaceProcessor extends BaseProcessor {
       const priceData = await this.searchCard(card.Name);
       
       if (priceData.found && priceData.prices.length > 0) {
-        // Group prices by set + condition, then get best price per group (prioritizing in-stock items)
-        const pricesBySet = {};
-        priceData.prices.forEach(price => {
-          const setName = `${price.set || 'Unknown Set'} (${price.condition})`;
-          const currentBest = pricesBySet[setName];
-
-          // Prioritize in-stock items, then lower price
-          const shouldReplace = !currentBest ||
-            (price.inStock && !currentBest.inStock) || // Prefer in-stock over out-of-stock
-            (price.inStock === currentBest.inStock && price.price < currentBest.price); // Both same stock status, prefer lower price
-
-          if (shouldReplace) {
-            pricesBySet[setName] = price;
-          }
-        });
-
-        this.logger.info(`FaceToFace: "${card.Name}" - Found ${Object.keys(pricesBySet).length} unique sets: ${Object.keys(pricesBySet).join(', ')}`);
-
-        // Create a result for each set
-        Object.values(pricesBySet).forEach(bestPriceForSet => {
-          const productUrl = bestPriceForSet.productHandle
-            ? `https://facetofacegames.com/products/${bestPriceForSet.productHandle}`
+        // One result per variant; the worker reduces these for display
+        priceData.prices.forEach(listing => {
+          const productUrl = listing.productHandle
+            ? `https://facetofacegames.com/products/${listing.productHandle}`
             : null;
 
-          const cardResult = new CardResult({
+          results.push(new CardResult({
             name: card.Name,
             quantity: card.Quantity,
-            price: Math.round(bestPriceForSet.price * 100), // Convert to cents
-            set: bestPriceForSet.set,
-            condition: bestPriceForSet.condition,
-            inStock: bestPriceForSet.inStock,
+            price: Math.round(listing.price * 100), // Convert to cents
+            set: listing.set,
+            condition: listing.condition,
+            inStock: listing.inStock,
             source: 'facetoface',
             url: productUrl
-          });
-
-          this.logger.debug(`FaceToFace: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.price}`);
-          results.push(cardResult);
+          }));
         });
 
-        this.logger.info(`FaceToFace: "${card.Name}" - Created ${Object.keys(pricesBySet).length} CardResult objects`);
+        this.logger.info(`FaceToFace: "${card.Name}" - Created ${priceData.prices.length} CardResult objects`);
       } else {
         this.logger.info(`FaceToFace: "${card.Name}" - No prices found, creating not-found result`);
         results.push(this.createNotFoundResult(card, 'facetoface'));

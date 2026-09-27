@@ -83,6 +83,25 @@ const DeckDetails: React.FC = () => {
     return vendorStats;
   };
 
+  // Min/max/avg across all vendors, including out of stock results
+  const calculateCardPriceRange = (card: Deck['Cards'][number]) => {
+    // Worker stats cover every listing; stored results are only a reduced subset
+    if (card.pricing?.stats) return card.pricing.stats;
+
+    const prices = (card.pricing?.results || [])
+      .map(result => result.price)
+      .filter(price => price > 0);
+    if (prices.length === 0) return null;
+
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+      avg: prices.reduce((sum, price) => sum + price, 0) / prices.length,
+    };
+  };
+
+  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
   const calculateInStockVendorStats = (deck: Deck) => {
     const vendorStats: Record<string, number> = {};
 
@@ -579,6 +598,17 @@ const DeckDetails: React.FC = () => {
             <div style={styles.cardHeader}>
               <div style={styles.cardQuantity}>{card.Quantity}x</div>
               <div style={styles.cardName}>{card.Name}</div>
+              {!card.purchased && (() => {
+                const range = calculateCardPriceRange(card);
+                if (!range) return null;
+                return (
+                  <div style={styles.priceRange} title="Across all vendors, including out of stock">
+                    <span>Min <strong>{formatPrice(range.min)}</strong></span>
+                    <span>Avg <strong>{formatPrice(range.avg)}</strong></span>
+                    <span>Max <strong>{formatPrice(range.max)}</strong></span>
+                  </div>
+                );
+              })()}
               {!progress.active && (
                 <div style={styles.cardActions}>
                   {card.purchased ? (
@@ -926,6 +956,14 @@ const styles = {
     flex: 1,
     fontSize: '16px',
     color: '#333',
+  },
+  priceRange: {
+    display: 'flex',
+    gap: '10px',
+    fontSize: '12px',
+    color: '#6c757d',
+    marginLeft: '15px',
+    whiteSpace: 'nowrap' as const,
   },
   cardActions: {
     marginLeft: '15px',
