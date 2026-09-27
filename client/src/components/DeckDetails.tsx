@@ -648,7 +648,10 @@ const DeckDetails: React.FC = () => {
                             ${(result.price / 100).toFixed(2)}
                             {!result.inStock && <span style={styles.outOfStock}> (OOS)</span>}
                           </span>
-                          <span style={styles.priceSet}>{result.set || '-'}</span>
+                          <span style={styles.priceSet}>
+                            {result.set || '-'}
+                            {result.condition && result.condition !== 'Unknown' && ` (${result.condition})`}
+                          </span>
                         </div>
                       );
                     })

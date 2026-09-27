@@ -113,20 +113,19 @@ class FaceToFaceProcessor extends BaseProcessor {
         const variants = source.variants || [];
         
         variants.forEach(variant => {
-          // Better price handling - try multiple fields and skip if no valid price
-          let sellPrice = parseFloat(variant.sellPrice) || parseFloat(variant.price) || 0;
-          let regularPrice = parseFloat(variant.price) || parseFloat(variant.sellPrice) || 0;
+          // variant.price is the retail price; variant.sellPrice is F2F's buylist price (what they pay you)
+          const retailPrice = parseFloat(variant.price) || 0;
 
           // Skip variants with invalid prices (0 or NaN)
-          if (!sellPrice || sellPrice <= 0) {
-            this.logger.debug(`Face2Face: Skipping variant with invalid price for "${cardName}": sellPrice=${variant.sellPrice}, price=${variant.price}`);
+          if (retailPrice <= 0) {
+            this.logger.debug(`Face2Face: Skipping variant with invalid price for "${cardName}": price=${variant.price}`);
             return; // Skip this variant
           }
 
           const priceResult = {
             name: source.title,
-            price: regularPrice,
-            sellPrice: sellPrice,
+            price: retailPrice,
+            buylistPrice: parseFloat(variant.sellPrice) || 0,
             condition: variant.selectedOptions?.find(opt => opt.name === 'Condition')?.value || 'Unknown',
             set: this.ensureString(source.Set || source.MTG_Set_Name),
             collectorNumber: source.MTG_Collector_Number,
@@ -148,7 +147,7 @@ class FaceToFaceProcessor extends BaseProcessor {
       this.logger.info(`Found ${prices.length} price results for "${cardName}" (${data.hits?.total?.value || 0} total hits)`);
 
       // Debug logging for set information
-      const setInfo = prices.map(p => ({ set: p.set, price: p.sellPrice, inStock: p.inStock }));
+      const setInfo = prices.map(p => ({ set: p.set, price: p.price, inStock: p.inStock }));
       this.logger.debug(`FaceToFace sets found for "${cardName}":`, JSON.stringify(setInfo, null, 2));
 
       return {
@@ -178,16 +177,16 @@ class FaceToFaceProcessor extends BaseProcessor {
       const priceData = await this.searchCard(card.Name);
       
       if (priceData.found && priceData.prices.length > 0) {
-        // Group prices by set, then get best price per set (prioritizing in-stock items)
+        // Group prices by set + condition, then get best price per group (prioritizing in-stock items)
         const pricesBySet = {};
         priceData.prices.forEach(price => {
-          const setName = price.set || 'Unknown Set';
+          const setName = `${price.set || 'Unknown Set'} (${price.condition})`;
           const currentBest = pricesBySet[setName];
 
           // Prioritize in-stock items, then lower price
           const shouldReplace = !currentBest ||
             (price.inStock && !currentBest.inStock) || // Prefer in-stock over out-of-stock
-            (price.inStock === currentBest.inStock && price.sellPrice < currentBest.sellPrice); // Both same stock status, prefer lower price
+            (price.inStock === currentBest.inStock && price.price < currentBest.price); // Both same stock status, prefer lower price
 
           if (shouldReplace) {
             pricesBySet[setName] = price;
@@ -205,7 +204,7 @@ class FaceToFaceProcessor extends BaseProcessor {
           const cardResult = new CardResult({
             name: card.Name,
             quantity: card.Quantity,
-            price: Math.round(bestPriceForSet.sellPrice * 100), // Convert to cents
+            price: Math.round(bestPriceForSet.price * 100), // Convert to cents
             set: bestPriceForSet.set,
             condition: bestPriceForSet.condition,
             inStock: bestPriceForSet.inStock,
@@ -213,7 +212,7 @@ class FaceToFaceProcessor extends BaseProcessor {
             url: productUrl
           });
 
-          this.logger.debug(`FaceToFace: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.sellPrice}`);
+          this.logger.debug(`FaceToFace: Creating result for "${card.Name}" from set "${bestPriceForSet.set}" - $${bestPriceForSet.price}`);
           results.push(cardResult);
         });
 
