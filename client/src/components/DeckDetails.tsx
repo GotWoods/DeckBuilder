@@ -562,14 +562,12 @@ const DeckDetails: React.FC = () => {
                       </div>
                     ))}
                 </div>
-                {Object.keys(calculateSelectedVendorStats(deck)).length > 0 && (
-                  <button
-                    onClick={() => setShowDeckLists(true)}
-                    style={styles.createDeckListsButton}
-                  >
-                    Create Deck Lists
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowDeckLists(true)}
+                  style={styles.createDeckListsButton}
+                >
+                  Create Deck Lists
+                </button>
               </div>
             </div>
           </div>

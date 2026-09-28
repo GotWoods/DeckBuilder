@@ -6,7 +6,7 @@ interface VendorCard {
   name: string;
   quantity: number;
   purchased: boolean;
-  price: number;
+  price?: number;
   set?: string;
   condition?: string;
 }
@@ -19,28 +19,29 @@ interface VendorDeckListsProps {
   onClose: () => void;
 }
 
-// Groups each card under the vendor its selected price came from
+const UNASSIGNED = '__unassigned__';
+
+// Groups each card under the vendor its selected price came from, or UNASSIGNED
 const groupSelectedCardsByVendor = (deck: Deck): Record<string, VendorCard[]> => {
   const groups: Record<string, VendorCard[]> = {};
+  const addCard = (group: string, card: VendorCard) => {
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(card);
+  };
 
   deck.Cards.forEach((card, index) => {
-    if (!card.pricing?.groupedByVendor) return;
+    const base = { index, name: card.Name, quantity: card.Quantity, purchased: !!card.purchased };
+    let assigned = false;
 
-    Object.entries(card.pricing.groupedByVendor).forEach(([vendor, results]) => {
+    Object.entries(card.pricing?.groupedByVendor || {}).forEach(([vendor, results]) => {
       const selected = results.find(result => result.selected);
       if (!selected) return;
 
-      if (!groups[vendor]) groups[vendor] = [];
-      groups[vendor].push({
-        index,
-        name: card.Name,
-        quantity: card.Quantity,
-        purchased: !!card.purchased,
-        price: selected.price,
-        set: selected.set,
-        condition: selected.condition,
-      });
+      assigned = true;
+      addCard(vendor, { ...base, price: selected.price, set: selected.set, condition: selected.condition });
     });
+
+    if (!assigned) addCard(UNASSIGNED, base);
   });
 
   // Unpurchased first, then purchased, each alphabetical
@@ -62,7 +63,11 @@ const VendorDeckLists: React.FC<VendorDeckListsProps> = ({
 }) => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean | undefined>>({});
   const groups = groupSelectedCardsByVendor(deck);
-  const vendors = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length);
+  // Vendors by card count, with unassigned cards last
+  const vendors = Object.keys(groups)
+    .filter(vendor => vendor !== UNASSIGNED)
+    .sort((a, b) => groups[b].length - groups[a].length);
+  if (groups[UNASSIGNED]) vendors.push(UNASSIGNED);
 
   // Vendors with every card purchased collapse unless the user expands them
   const isCollapsed = (vendor: string) =>
@@ -88,25 +93,24 @@ const VendorDeckLists: React.FC<VendorDeckListsProps> = ({
         <button onClick={onClose} style={styles.closeButton}>← Back to Cards</button>
       </div>
 
-      {vendors.length === 0 && (
-        <div style={styles.empty}>No selected cards. Select a price for a card to add it to a vendor list.</div>
-      )}
-
       {vendors.map(vendor => {
         const cards = groups[vendor];
         const remaining = cards.filter(card => !card.purchased);
         // Deck list text only includes cards still to buy
         const listText = remaining.map(card => `${card.quantity} ${card.name}`).join('\n');
-        const total = remaining.reduce((sum, card) => sum + card.price * card.quantity, 0);
+        const total = remaining.reduce((sum, card) => sum + (card.price || 0) * card.quantity, 0);
         const vendorCollapsed = isCollapsed(vendor);
 
         return (
           <div key={vendor} style={styles.vendorSection}>
             <div style={styles.vendorHeader} onClick={() => toggleCollapsed(vendor)}>
               <span style={styles.chevron}>{vendorCollapsed ? '▶' : '▼'}</span>
-              <span style={styles.vendorName}>{getVendorDisplayName(vendor)}</span>
+              <span style={styles.vendorName}>
+                {vendor === UNASSIGNED ? 'No Vendor Selected' : getVendorDisplayName(vendor)}
+              </span>
               <span style={styles.vendorSummary}>
-                {remaining.length} of {cards.length} remaining · {formatPrice(total)}
+                {remaining.length} of {cards.length} remaining
+                {vendor !== UNASSIGNED && ` · ${formatPrice(total)}`}
               </span>
             </div>
 
@@ -133,11 +137,15 @@ const VendorDeckLists: React.FC<VendorDeckListsProps> = ({
                   <div key={card.index} style={card.purchased ? styles.cardRowPurchased : styles.cardRow}>
                     <span style={styles.cardQuantity}>{card.quantity}x</span>
                     <span style={styles.cardName}>{card.name}</span>
-                    <span style={styles.cardDetails}>
-                      {card.set || '-'}
-                      {card.condition && card.condition !== 'Unknown' && ` (${card.condition})`}
-                    </span>
-                    <span style={styles.cardPrice}>{formatPrice(card.price)}</span>
+                    {card.price !== undefined && (
+                      <>
+                        <span style={styles.cardDetails}>
+                          {card.set || '-'}
+                          {card.condition && card.condition !== 'Unknown' && ` (${card.condition})`}
+                        </span>
+                        <span style={styles.cardPrice}>{formatPrice(card.price)}</span>
+                      </>
+                    )}
                     <button
                       onClick={() => handleTogglePurchased(vendor, card.index)}
                       style={card.purchased ? styles.purchasedLabel : styles.purchasedButton}
@@ -175,11 +183,6 @@ const styles = {
     fontSize: '16px',
     fontWeight: 'bold',
     cursor: 'pointer',
-  },
-  empty: {
-    color: '#6c757d',
-    padding: '20px',
-    textAlign: 'center' as const,
   },
   vendorSection: {
     backgroundColor: 'white',
