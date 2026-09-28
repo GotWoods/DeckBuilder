@@ -6,6 +6,7 @@ import { useSocket } from '../contexts/SocketContext';
 import Toast from './Toast';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import AlternateCardsModal from './AlternateCardsModal';
+import VendorDeckLists from './VendorDeckLists';
 
 interface ProgressState {
   active: boolean;
@@ -33,6 +34,7 @@ const DeckDetails: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showOutOfStock, setShowOutOfStock] = useState<boolean>(false);
+  const [showDeckLists, setShowDeckLists] = useState<boolean>(false);
   const [progress, setProgress] = useState<ProgressState>({
     active: false,
     progress: 0
@@ -158,8 +160,10 @@ const DeckDetails: React.FC = () => {
 
   const handleCopySelectedCards = async (vendor: string) => {
     const selectedCards = getSelectedCardsByVendor(deck!, vendor);
-    const cardList = selectedCards.join('\n');
+    await copyToClipboard(selectedCards.join('\n'));
+  };
 
+  const copyToClipboard = async (cardList: string) => {
     try {
       await navigator.clipboard.writeText(cardList);
       setToastVisible(true);
@@ -558,12 +562,29 @@ const DeckDetails: React.FC = () => {
                       </div>
                     ))}
                 </div>
+                {Object.keys(calculateSelectedVendorStats(deck)).length > 0 && (
+                  <button
+                    onClick={() => setShowDeckLists(true)}
+                    style={styles.createDeckListsButton}
+                  >
+                    Create Deck Lists
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
 
+      {showDeckLists ? (
+        <VendorDeckLists
+          deck={deck}
+          getVendorDisplayName={getVendorDisplayName}
+          onTogglePurchased={handleTogglePurchased}
+          onCopy={copyToClipboard}
+          onClose={() => setShowDeckLists(false)}
+        />
+      ) : (
       <div style={styles.cardList}>
         <div style={styles.cardListHeader}>
           <h2>Cards</h2>
@@ -697,6 +718,7 @@ const DeckDetails: React.FC = () => {
           </div>
         ))}
       </div>
+      )}
     </div>
 
     {/* Alternate Cards Modal */}
@@ -883,6 +905,17 @@ const styles = {
       opacity: 1,
       backgroundColor: '#f8f9fa',
     }
+  },
+  createDeckListsButton: {
+    marginTop: '8px',
+    padding: '6px 12px',
+    backgroundColor: '#007bff',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 'bold',
   },
   cardList: {
     marginTop: '20px',
