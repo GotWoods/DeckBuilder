@@ -43,6 +43,11 @@ const groupSelectedCardsByVendor = (deck: Deck): Record<string, VendorCard[]> =>
     });
   });
 
+  // Unpurchased first, then purchased, each alphabetical
+  Object.values(groups).forEach(cards =>
+    cards.sort((a, b) => Number(a.purchased) - Number(b.purchased) || a.name.localeCompare(b.name))
+  );
+
   return groups;
 };
 
@@ -55,12 +60,26 @@ const VendorDeckLists: React.FC<VendorDeckListsProps> = ({
   onCopy,
   onClose,
 }) => {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean | undefined>>({});
   const groups = groupSelectedCardsByVendor(deck);
   const vendors = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length);
 
+  // Vendors with every card purchased collapse unless the user expands them
+  const isCollapsed = (vendor: string) =>
+    collapsed[vendor] ?? groups[vendor].every(card => card.purchased);
+
   const toggleCollapsed = (vendor: string) =>
-    setCollapsed(prev => ({ ...prev, [vendor]: !prev[vendor] }));
+    setCollapsed(prev => ({ ...prev, [vendor]: !isCollapsed(vendor) }));
+
+  // Clear the manual override so the vendor re-evaluates auto-collapse
+  const handleTogglePurchased = (vendor: string, cardIndex: number) => {
+    setCollapsed(prev => {
+      const next = { ...prev };
+      delete next[vendor];
+      return next;
+    });
+    onTogglePurchased(cardIndex);
+  };
 
   return (
     <div style={styles.container}>
@@ -79,19 +98,19 @@ const VendorDeckLists: React.FC<VendorDeckListsProps> = ({
         // Deck list text only includes cards still to buy
         const listText = remaining.map(card => `${card.quantity} ${card.name}`).join('\n');
         const total = remaining.reduce((sum, card) => sum + card.price * card.quantity, 0);
-        const isCollapsed = !!collapsed[vendor];
+        const vendorCollapsed = isCollapsed(vendor);
 
         return (
           <div key={vendor} style={styles.vendorSection}>
             <div style={styles.vendorHeader} onClick={() => toggleCollapsed(vendor)}>
-              <span style={styles.chevron}>{isCollapsed ? '▶' : '▼'}</span>
+              <span style={styles.chevron}>{vendorCollapsed ? '▶' : '▼'}</span>
               <span style={styles.vendorName}>{getVendorDisplayName(vendor)}</span>
               <span style={styles.vendorSummary}>
                 {remaining.length} of {cards.length} remaining · {formatPrice(total)}
               </span>
             </div>
 
-            {!isCollapsed && (
+            {!vendorCollapsed && (
               <div style={styles.vendorBody}>
                 <div style={styles.listTextContainer}>
                   <textarea
@@ -120,7 +139,7 @@ const VendorDeckLists: React.FC<VendorDeckListsProps> = ({
                     </span>
                     <span style={styles.cardPrice}>{formatPrice(card.price)}</span>
                     <button
-                      onClick={() => onTogglePurchased(card.index)}
+                      onClick={() => handleTogglePurchased(vendor, card.index)}
                       style={card.purchased ? styles.purchasedLabel : styles.purchasedButton}
                     >
                       {card.purchased ? '✓ Purchased' : '☐ Purchased'}
