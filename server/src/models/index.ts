@@ -4,3 +4,4 @@ export type { IPricing, IPricingStats } from './IPricing';
 export type { ICard } from './ICard';
 export type { IDeck } from './deckSchema';
 export type { IUser } from './IUser';
+export type { IArbitrageScan, IArbitrageOpportunity, ArbitrageScanStatus } from './IArbitrage';

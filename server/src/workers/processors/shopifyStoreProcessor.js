@@ -2,6 +2,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../../models/cardResult');
+const { shopifyStoreListings } = require('../../utils/listingNormalizers');
+const { titleMatchesCardName } = require('../../utils/cardIdentity');
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 
@@ -31,7 +33,7 @@ class ShopifyStoreProcessor extends BaseProcessor {
         const url = `${this.baseUrl}/search?q=${encodedCardName}*+product_type%3A%22mtg%22&page=${currentPage}`;
         this.logger.debug(`${this.vendorName} URL: ${url}`);
 
-        const response = await axios.get(url, { headers: { 'User-Agent': USER_AGENT } });
+        const response = await axios.get(url, { timeout: 10000, headers: { 'User-Agent': USER_AGENT } });
         const pageProducts = await this.parseHtmlResponse(response.data, cardName);
 
         if (pageProducts.length > 0) {
@@ -81,7 +83,7 @@ class ShopifyStoreProcessor extends BaseProcessor {
       const cardTitle = cheerio.load(cardNamePart).text().trim();
       const setName = cheerio.load(setPart).text().trim().replace(/^\[/, '').replace(/\]$/, '');
 
-      if (!cardTitle.toLowerCase().startsWith(cardName.toLowerCase())) {
+      if (!titleMatchesCardName(cardTitle, cardName)) {
         this.logger.debug(`${this.vendorName}: Skipping non-matching product: "${cardTitle}"`);
         return;
       }
@@ -130,6 +132,7 @@ class ShopifyStoreProcessor extends BaseProcessor {
   async fetchProductVariants({ handle, cardTitle, setName, url }) {
     try {
       const response = await axios.get(`${this.baseUrl}/products/${handle}.js`, {
+        timeout: 10000,
         headers: { 'User-Agent': USER_AGENT }
       });
 
@@ -178,6 +181,11 @@ class ShopifyStoreProcessor extends BaseProcessor {
     }
 
     return results;
+  }
+
+  // Normalized sell listings for arbitrage matching
+  toListings(raw) {
+    return shopifyStoreListings(raw, this.source);
   }
 
   extractTotalPages(html) {

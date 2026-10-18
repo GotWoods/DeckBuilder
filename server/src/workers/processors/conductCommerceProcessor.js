@@ -2,6 +2,8 @@ const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../../models/cardResult');
 const { v4: uuidv4 } = require('uuid');
+const { conductCommerceListings } = require('../../utils/listingNormalizers');
+const { titleMatchesCardName } = require('../../utils/cardIdentity');
 
 // Shared processor for stores hosted on Conduct Commerce (e.g. Prisma, Cerberus)
 class ConductCommerceProcessor extends BaseProcessor {
@@ -98,21 +100,10 @@ class ConductCommerceProcessor extends BaseProcessor {
       const filteredListings = listings.filter(listing => {
         const inventoryName = listing.inventoryName || '';
 
-        // Clean both strings: remove quotes, normalize whitespace, handle encoding issues
-        const cleanInventoryName = inventoryName
-          .replace(/["""'']/g, '') // Remove various quote characters
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim();
-
-        const cleanSearchTerm = cardName
-          .replace(/["""'']/g, '') // Remove various quote characters
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim();
-
         // Extract card name from inventory name (remove suffixes like "- Foil", "- Extended Art", etc.)
-        const cardTitle = cleanInventoryName.replace(/\s*-\s*(Foil|Extended Art|Showcase|Promo|Retro Frame).*$/i, '').trim();
+        const cardTitle = inventoryName.replace(/\s*-\s*(Foil|Extended Art|Showcase|Promo|Retro Frame).*$/i, '').trim();
 
-        const matches = cardTitle.toLowerCase().startsWith(cleanSearchTerm.toLowerCase());
+        const matches = titleMatchesCardName(cardTitle, cardName);
 
         if (!matches) {
           this.logger.debug(`${this.vendorName}: Filtered out "${inventoryName}" (doesn't start with "${cardName}")`);
@@ -149,6 +140,7 @@ class ConductCommerceProcessor extends BaseProcessor {
             vendor: this.vendorName,
             productType: 'MTG Single',
             set: setName,
+            finish: listing.filterFields?.Finish,
             sku: null,
             variantId: variant.id
           });
@@ -207,6 +199,11 @@ class ConductCommerceProcessor extends BaseProcessor {
     }
 
     return results;
+  }
+
+  // Normalized sell listings for arbitrage matching
+  toListings(raw) {
+    return conductCommerceListings(raw, this.source);
   }
 
   extractSetName(productName) {

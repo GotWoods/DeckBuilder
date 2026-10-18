@@ -64,6 +64,9 @@ const DeckList: React.FC = () => {
         <h1>Your Decks</h1>
         <div style={styles.headerRight}>
           <div style={styles.buttonGroup}>
+            <button onClick={() => navigate('/arbitrage')} style={styles.button}>
+              Arbitrage
+            </button>
             <button onClick={handleImport} style={styles.importButton}>
               + Import
             </button>
