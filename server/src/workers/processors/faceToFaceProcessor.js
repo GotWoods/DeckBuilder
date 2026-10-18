@@ -1,6 +1,7 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../../models/cardResult');
+const { faceToFaceListings } = require('../../utils/listingNormalizers');
 
 class FaceToFaceProcessor extends BaseProcessor {
   constructor() {
@@ -131,6 +132,9 @@ class FaceToFaceProcessor extends BaseProcessor {
             collectorNumber: source.MTG_Collector_Number,
             rarity: source.MTG_Rarity,
             foil: source.MTG_Foil_Option === 'Foil',
+            finish: source.MTG_Foil_Option,
+            cardName: source.General_Card_Name,
+            artQualifier: source.General_Alternate_Art_Qualifier,
             language: source.General_Card_Language,
             inStock: variant.inventoryQuantity > 0,
             inventoryQuantity: variant.inventoryQuantity,
@@ -206,6 +210,11 @@ class FaceToFaceProcessor extends BaseProcessor {
     }
     
     return results;
+  }
+
+  // Normalized sell listings for arbitrage matching
+  toListings(raw) {
+    return faceToFaceListings(raw, this.source);
   }
 
 }

@@ -1,6 +1,8 @@
 const axios = require('axios');
 const BaseProcessor = require('./baseProcessor');
 const { CardResult } = require('../../models/cardResult');
+const { tapsListings } = require('../../utils/listingNormalizers');
+const { titleMatchesCardName } = require('../../utils/cardIdentity');
 
 /*
 Example of script tag data from Taps Games product pages:
@@ -231,28 +233,10 @@ class TapsProcessor extends BaseProcessor {
       const filteredProducts = products.filter(item => {
         const productName = item.display_name || item.name || '';
 
-        // Clean both strings: remove quotes, normalize whitespace, handle encoding issues
-        const cleanProductName = productName
-          .replace(/["""'']/g, '') // Remove various quote characters
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim();
-
-        const cleanSearchTerm = cardName
-          .replace(/["""'']/g, '') // Remove various quote characters
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim();
-
         // Extract card name from display name (e.g., "Lightning Bolt [Anthologies]" -> "Lightning Bolt")
-        const cardTitle = cleanProductName.replace(/\s*\[.*?\]\s*$/, '').trim();
+        const cardTitle = productName.replace(/\s*\[.*?\]\s*$/, '').trim();
 
-        const matches = cardTitle.toLowerCase().startsWith(cleanSearchTerm.toLowerCase());
-
-        if (!matches && productName.toLowerCase().includes('sol ring')) {
-          // Debug only Sol Ring mismatches to see the issue
-          this.logger.info(`Taps: DEBUG - productName: "${productName}" -> cardTitle: "${cardTitle}" vs searchTerm: "${cleanSearchTerm}"`);
-        }
-
-        return matches;
+        return titleMatchesCardName(cardTitle, cardName);
       });
 
       this.logger.info(`Taps: Filtered ${products.length} results to ${filteredProducts.length} matching products for "${cardName}"`);
@@ -284,6 +268,7 @@ class TapsProcessor extends BaseProcessor {
           availability: item.availability,
           inventoryLevels: item.inventoryLevels,
           variantInfo: item.variantInfo,
+          variants: item.variant_info || item.variantInfo || [],
           selectedFinish: item.selectedFinish,
           tags: item.tags,
           publisher: item.publisher,
@@ -527,6 +512,11 @@ class TapsProcessor extends BaseProcessor {
       return listing.variantInfo.some(variant => variant.inventory_quantity > 0);
     }
     return listing.availability === 'in_stock' || listing.availability === true;
+  }
+
+  // Normalized sell listings for arbitrage matching
+  toListings(raw) {
+    return tapsListings(raw, this.source);
   }
 
 }

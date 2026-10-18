@@ -1,0 +1,217 @@
+{
+  "count": 3,
+  "products": [
+    {
+      "display_name": "Demonic Tutor (JP Alternate Art) (Foil Etched) (STA-090) [Strixhaven Mystical Archive] (Borderless) Foil",
+      "price": 494.38,
+      "selectedFinish": "foil",
+      "tags": [
+        "Number_90",
+        "Printing_Foil",
+        "Set Code_STA",
+        "Set_Strixhaven Mystical Archive"
+      ],
+      "variant_info": [
+        {
+          "title": "Near Mint Foil",
+          "price": 494.38,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Lightly Played Foil",
+          "price": 444.94,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Moderately Played Foil",
+          "price": 395.5,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Heavily Played Foil",
+          "price": 321.35,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Damaged Foil",
+          "price": 247.19,
+          "inventory_quantity": 0
+        }
+      ],
+      "store_pass_variant_info": [
+        {
+          "title": "Near Mint Foil",
+          "offer_price": 217.53,
+          "offer_price_credit": 326.3
+        },
+        {
+          "title": "Lightly Played Foil",
+          "offer_price": 195.77,
+          "offer_price_credit": 293.66
+        },
+        {
+          "title": "Moderately Played Foil",
+          "offer_price": 174.02,
+          "offer_price_credit": 261.03
+        },
+        {
+          "title": "Heavily Played Foil",
+          "offer_price": 141.39,
+          "offer_price_credit": 212.08
+        },
+        {
+          "title": "Damaged Foil",
+          "offer_price": 108.76,
+          "offer_price_credit": 163.14
+        }
+      ],
+      "offer_price": 217.53,
+      "offer_price_credit": 326.3,
+      "product_data": {
+        "set_name": "Strixhaven Mystical Archive"
+      }
+    },
+    {
+      "display_name": "The One Ring (Surge Foil) (LTR-791) [The Lord of the Rings: Tales of Middle-earth] (Extended Art) Foil",
+      "price": 494.04,
+      "selectedFinish": "foil",
+      "tags": [
+        "Number_791",
+        "Printing_Foil",
+        "Set Code_LTR",
+        "Set_The Lord of the Rings: Tales of Middle-earth"
+      ],
+      "variant_info": [
+        {
+          "title": "Near Mint Foil",
+          "price": 494.04,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Lightly Played Foil",
+          "price": 444.64,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Moderately Played Foil",
+          "price": 395.23,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Heavily Played Foil",
+          "price": 321.13,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Damaged Foil",
+          "price": 247.02,
+          "inventory_quantity": 0
+        }
+      ],
+      "store_pass_variant_info": [
+        {
+          "title": "Near Mint Foil",
+          "offer_price": 217.38,
+          "offer_price_credit": 326.07
+        },
+        {
+          "title": "Lightly Played Foil",
+          "offer_price": 195.64,
+          "offer_price_credit": 293.46
+        },
+        {
+          "title": "Moderately Played Foil",
+          "offer_price": 173.9,
+          "offer_price_credit": 260.85
+        },
+        {
+          "title": "Heavily Played Foil",
+          "offer_price": 141.3,
+          "offer_price_credit": 211.95
+        },
+        {
+          "title": "Damaged Foil",
+          "offer_price": 108.69,
+          "offer_price_credit": 163.03
+        }
+      ],
+      "offer_price": 217.38,
+      "offer_price_credit": 326.07,
+      "product_data": {
+        "set_name": "The Lord of the Rings: Tales of Middle-earth"
+      }
+    },
+    {
+      "display_name": "Rhystic Study (JDG-007) [Misc] Judge Gift Cards 2018 Foil",
+      "price": 475.68,
+      "selectedFinish": "foil",
+      "tags": [
+        "Number_7",
+        "Printing_Foil",
+        "Set Code_JDG",
+        "Set_Judge Gift Cards 2018"
+      ],
+      "variant_info": [
+        {
+          "title": "Near Mint Foil",
+          "price": 475.68,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Lightly Played Foil",
+          "price": 428.11,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Moderately Played Foil",
+          "price": 380.54,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Heavily Played Foil",
+          "price": 309.19,
+          "inventory_quantity": 0
+        },
+        {
+          "title": "Damaged Foil",
+          "price": 237.84,
+          "inventory_quantity": 0
+        }
+      ],
+      "store_pass_variant_info": [
+        {
+          "title": "Near Mint Foil",
+          "offer_price": 209.3,
+          "offer_price_credit": 313.95
+        },
+        {
+          "title": "Lightly Played Foil",
+          "offer_price": 188.37,
+          "offer_price_credit": 282.56
+        },
+        {
+          "title": "Moderately Played Foil",
+          "offer_price": 167.44,
+          "offer_price_credit": 251.16
+        },
+        {
+          "title": "Heavily Played Foil",
+          "offer_price": 136.04,
+          "offer_price_credit": 204.06
+        },
+        {
+          "title": "Damaged Foil",
+          "offer_price": 104.65,
+          "offer_price_credit": 156.98
+        }
+      ],
+      "offer_price": 209.3,
+      "offer_price_credit": 313.95,
+      "product_data": {
+        "set_name": "Judge Gift Cards 2018"
+      }
+    }
+  ],
+  "current_page": 1,
+  "pages": 1
+}

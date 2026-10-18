@@ -7,6 +7,7 @@ import DeckDetails from './components/DeckDetails';
 import Login from './components/Login';
 import AuthCallback from './components/AuthCallback';
 import DeckImport from './components/DeckImport';
+import Arbitrage from './components/Arbitrage';
 
 const App: React.FC = () => {
   return (
@@ -20,6 +21,7 @@ const App: React.FC = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/import" element={<DeckImport />} />
+              <Route path="/arbitrage" element={<Arbitrage />} />
             </Routes>
           </div>
         </Router>

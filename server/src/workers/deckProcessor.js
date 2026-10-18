@@ -303,6 +303,9 @@ deckQueue.process('processDeck', async (job) => {
   }
 });
 
+// Arbitrage scans run in this same worker process
+require('./arbitrageScanner');
+
 // Add explicit Redis connection test
 setTimeout(async () => {
   logger.info('Checking queue status after 2 seconds...');

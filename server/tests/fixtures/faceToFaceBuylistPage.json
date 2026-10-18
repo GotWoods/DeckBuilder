@@ -1,0 +1,169 @@
+{
+  "hits": {
+    "total": {
+      "value": 158159,
+      "relation": "eq"
+    },
+    "hits": [
+      {
+        "_source": {
+          "title": "Black Lotus [233] [Limited Edition Beta] [Non-Foil]",
+          "handle": "black-lotus-233-limited-edition-beta-non-foil",
+          "General_Card_Name": "Black Lotus",
+          "General_Card_Language": "English",
+          "MTG_Collector_Number": 233,
+          "MTG_Foil_Option": "Non-Foil",
+          "MTG_Set_Name": "Limited Edition Beta",
+          "General_Alternate_Art_Qualifier": [
+            "Default Art"
+          ],
+          "Card Name": "Black Lotus",
+          "Language": "English",
+          "Collector Number": 233,
+          "Finish": "Non-Foil",
+          "Set": "Limited Edition Beta",
+          "variants": [
+            {
+              "price": 37499.99,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-LEB-233-ENG-HP-NF",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "HP"
+                }
+              ],
+              "sellPrice": 28125
+            },
+            {
+              "price": 79999.99,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-LEB-233-ENG-NM-NF",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "NM"
+                }
+              ],
+              "sellPrice": 60000
+            },
+            {
+              "price": 58749.99,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-LEB-233-ENG-PL-NF",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "PL"
+                }
+              ],
+              "sellPrice": 44062.5
+            }
+          ]
+        }
+      },
+      {
+        "_source": {
+          "title": "Traveling Chocobo - Serial Numbered [551f] [Borderless] [FINAL FANTASY] [Foil]",
+          "handle": "traveling-chocobo-serial-numbered-551f-borderless-final-fantasy-foil",
+          "General_Card_Name": "Traveling Chocobo",
+          "General_Card_Language": "English",
+          "MTG_Collector_Number": "551f",
+          "MTG_Foil_Option": "Foil",
+          "MTG_Set_Name": "FINAL FANTASY",
+          "General_Alternate_Art_Qualifier": [
+            "Borderless"
+          ],
+          "Card Name": "Traveling Chocobo",
+          "Language": "English",
+          "Collector Number": "551f",
+          "Finish": "Foil",
+          "Set": "FINAL FANTASY",
+          "variants": [
+            {
+              "price": 119999.99,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-FIN-551f-ENG-NM-F",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "NM"
+                }
+              ],
+              "sellPrice": 60000
+            },
+            {
+              "price": 95999.99,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-FIN-551f-ENG-PL-F",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "PL"
+                }
+              ],
+              "sellPrice": 48000
+            }
+          ]
+        }
+      },
+      {
+        "_source": {
+          "title": "Black Lotus [232] [Limited Edition Alpha] [Non-Foil]",
+          "handle": "black-lotus-232-limited-edition-alpha-non-foil",
+          "General_Card_Name": "Black Lotus",
+          "General_Card_Language": "English",
+          "MTG_Collector_Number": 232,
+          "MTG_Foil_Option": "Non-Foil",
+          "MTG_Set_Name": "Limited Edition Alpha",
+          "General_Alternate_Art_Qualifier": [
+            "Default Art"
+          ],
+          "Card Name": "Black Lotus",
+          "Language": "English",
+          "Collector Number": 232,
+          "Finish": "Non-Foil",
+          "Set": "Limited Edition Alpha",
+          "variants": [
+            {
+              "price": 53937.5,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-LEA-232-ENG-HP-NF",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "HP"
+                }
+              ],
+              "sellPrice": 16181.25
+            },
+            {
+              "price": 205249.99,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-LEA-232-ENG-NM-NF",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "NM"
+                }
+              ],
+              "sellPrice": 51312
+            },
+            {
+              "price": 102625,
+              "inventoryQuantity": 0,
+              "sku": "SIN-MTG-LEA-232-ENG-PL-NF",
+              "selectedOptions": [
+                {
+                  "name": "Condition",
+                  "value": "PL"
+                }
+              ],
+              "sellPrice": 25656
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

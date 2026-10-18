@@ -7,30 +7,20 @@ import Toast from './Toast';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import AlternateCardsModal from './AlternateCardsModal';
 import VendorDeckLists from './VendorDeckLists';
+import { getVendorDisplayName } from '../constants/vendors';
+
+// Vendors with more results than this start collapsed
+const COLLAPSED_RESULT_LIMIT = 10;
 
 interface ProgressState {
   active: boolean;
   progress: number;
 }
 
-// Vendor display name mapping
-const VENDOR_DISPLAY_NAMES: Record<string, string> = {
-  facetoface: 'Face To Face',
-  taps: 'Taps',
-  redclaw: 'Red Claw',
-  prisma: 'Prisma',
-  cerberus: 'Cerberus'
-};
-
 const DeckDetails: React.FC = () => {
   const { id: deckId } = useParams<{ id: string }>();
   const [deck, setDeck] = useState<Deck | undefined>();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  // Helper function to get vendor display name
-  const getVendorDisplayName = (vendor: string): string => {
-    return VENDOR_DISPLAY_NAMES[vendor.toLowerCase()] || vendor;
-  };
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showOutOfStock, setShowOutOfStock] = useState<boolean>(false);
@@ -42,6 +32,16 @@ const DeckDetails: React.FC = () => {
   const [toastVisible, setToastVisible] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [alternateModalCard, setAlternateModalCard] = useState<{ name: string; index: number } | null>(null);
+  // Card/vendor pairs ("cardIndex-vendor") showing all results instead of the cheapest few
+  const [expandedVendors, setExpandedVendors] = useState<Set<string>>(new Set());
+
+  const toggleVendorExpanded = (key: string) => {
+    setExpandedVendors(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
   const navigate = useNavigate();
   const { joinDeckRoom, leaveDeckRoom, onProgress, offProgress } = useSocket();
 
@@ -650,8 +650,9 @@ const DeckDetails: React.FC = () => {
             </div>
             
             {!card.purchased && card.pricing?.groupedByVendor && (() => {
+              const groupedByVendor = card.pricing.groupedByVendor;
               // Filter results based on showOutOfStock toggle
-              const filteredGroupedByVendor = Object.entries(card.pricing.groupedByVendor).reduce((acc, [vendor, results]) => {
+              const filteredGroupedByVendor = Object.entries(groupedByVendor).reduce((acc, [vendor, results]) => {
                 const filteredResults = showOutOfStock
                   ? results
                   : results.filter(result => result.inStock);
@@ -678,10 +679,21 @@ const DeckDetails: React.FC = () => {
 
               return (
                 <div style={styles.cardPricing}>
-                  {Object.entries(filteredGroupedByVendor).map(([vendor, results]) => (
-                    results.map((result, displayIndex) => {
+                  {Object.entries(filteredGroupedByVendor).map(([vendor, results]) => {
+                    const expandKey = `${index}-${vendor}`;
+                    const isCollapsible = results.length > COLLAPSED_RESULT_LIMIT;
+                    const isExpanded = expandedVendors.has(expandKey);
+                    // Collapsed shows the cheapest results, plus a selected one so the choice stays visible
+                    const visibleResults = isCollapsible && !isExpanded
+                      ? results.filter((result, i) => i < COLLAPSED_RESULT_LIMIT || result.selected)
+                      : results;
+                    const hiddenCount = results.length - visibleResults.length;
+
+                    return (
+                    <React.Fragment key={vendor}>
+                    {visibleResults.map((result, displayIndex) => {
                       // Find the original index in the unfiltered array
-                      const originalIndex = card.pricing.groupedByVendor[vendor].findIndex(r => r === result);
+                      const originalIndex = groupedByVendor[vendor].findIndex(r => r === result);
                       const isCheapest = result.inStock && result.price === cheapestPrice;
                       return (
                         <div key={`${vendor}-${originalIndex}`} style={styles.priceRow}>
@@ -704,8 +716,19 @@ const DeckDetails: React.FC = () => {
                           </span>
                         </div>
                       );
-                    })
-                  ))}
+                    })}
+                    {isCollapsible && (
+                      <button
+                        onClick={() => toggleVendorExpanded(expandKey)}
+                        style={styles.expandToggle}
+                        aria-expanded={isExpanded}
+                      >
+                        {isExpanded ? '^ Show less' : `⌄ Show ${hiddenCount} more`}
+                      </button>
+                    )}
+                    </React.Fragment>
+                    );
+                  })}
                   <div style={styles.priceTimestamp}>
                     Updated: {new Date(card.pricing.processedAt).toLocaleDateString()}
                   </div>
@@ -1088,6 +1111,16 @@ const styles = {
   priceSet: {
     fontSize: '12px',
     color: '#6c757d',
+  },
+  expandToggle: {
+    background: 'none',
+    border: 'none',
+    padding: '2px 0',
+    marginLeft: '108px',
+    marginBottom: '4px',
+    fontSize: '12px',
+    color: '#007bff',
+    cursor: 'pointer',
   },
   priceTimestamp: {
     fontSize: '11px',

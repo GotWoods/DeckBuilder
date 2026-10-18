@@ -12,6 +12,7 @@ import importRoutes from './routes/importRoutes';
 import deckRoutes from './routes/deckRoutes';
 import authRoutes from './routes/authRoutes';
 import cardRoutes from './routes/cardRoutes';
+import arbitrageRoutes from './routes/arbitrageRoutes';
 import { optionalAuth } from './middleware/auth';
 import deckQueue from './utils/deckQueue';
 import socketService from './services/socketService';
@@ -74,6 +75,7 @@ app.use('/auth', authRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/deck', deckRoutes);
 app.use('/api/cards', cardRoutes);
+app.use('/api/arbitrage', arbitrageRoutes);
 
 // Health check endpoint for Fly.io
 app.get('/health', (req, res) => {
