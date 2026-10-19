@@ -399,14 +399,15 @@ const addCards = async (req, res) => {
       });
     }
 
-    // Cards already in the deck get their quantity bumped; new ones are appended unpriced
+    // Cards already in the deck get their quantity bumped; new ones are inserted alphabetically, unpriced
     let newCardCount = 0;
     parsedCards.forEach(card => {
       const existing = deck.Cards.find(c => c.Name.toLowerCase() === card.Name.toLowerCase());
       if (existing) {
         existing.Quantity += card.Quantity;
       } else {
-        deck.Cards.push(card);
+        const insertAt = deck.Cards.findIndex(c => c.Name.localeCompare(card.Name, undefined, { sensitivity: 'base' }) > 0);
+        deck.Cards.splice(insertAt === -1 ? deck.Cards.length : insertAt, 0, card);
         newCardCount++;
       }
     });

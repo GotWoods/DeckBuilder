@@ -24,9 +24,9 @@ const mockDeck = (overrides = {}) => ({
   Importing: false,
   colorIdentity: ['G', 'R'],
   Cards: [
-    { Name: 'Sol Ring', Quantity: 1, colorIdentity: [] },
     { Name: 'Lightning Bolt', Quantity: 2, colorIdentity: ['R'] },
-    { Name: 'Llanowar Elves', Quantity: 1, colorIdentity: ['G'] }
+    { Name: 'Llanowar Elves', Quantity: 1, colorIdentity: ['G'] },
+    { Name: 'Sol Ring', Quantity: 1, colorIdentity: [] }
   ],
   save: jest.fn().mockResolvedValue(),
   ...overrides
@@ -36,19 +36,19 @@ describe('deckController card edits', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('addCards', () => {
-    test('appends new cards, bumps existing quantities and queues unpriced pricing', async () => {
+    test('inserts new cards alphabetically, bumps existing quantities and queues unpriced pricing', async () => {
       const deck = mockDeck();
       Deck.findOne.mockResolvedValue(deck);
       const res = mockRes();
 
       await deckController.addCards(
-        { params: { deckId: 'd1' }, body: { cards: '1 sol ring\n1 Last Breath (2X2) 15 *F*' }, user: { id: 'u1' } },
+        { params: { deckId: 'd1' }, body: { cards: '1 sol ring\n1 Last Breath (2X2) 15 *F*\n1 Zuran Orb' }, user: { id: 'u1' } },
         res
       );
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(deck.Cards.map(c => [c.Name, c.Quantity])).toEqual([
-        ['Sol Ring', 2], ['Lightning Bolt', 2], ['Llanowar Elves', 1], ['Last Breath', 1]
+        ['Last Breath', 1], ['Lightning Bolt', 2], ['Llanowar Elves', 1], ['Sol Ring', 2], ['Zuran Orb', 1]
       ]);
       expect(deck.Importing).toBe(true);
       expect(deckQueue.add).toHaveBeenCalledWith('processDeck', { deckId: 'd1', onlyUnpriced: true }, expect.any(Object));
@@ -61,7 +61,7 @@ describe('deckController card edits', () => {
 
       await deckController.addCards({ params: { deckId: 'd1' }, body: { cards: '3 Lightning Bolt' } }, res);
 
-      expect(deck.Cards[1].Quantity).toBe(5);
+      expect(deck.Cards[0].Quantity).toBe(5);
       expect(deck.Importing).toBe(false);
       expect(deckQueue.add).not.toHaveBeenCalled();
     });
@@ -91,10 +91,10 @@ describe('deckController card edits', () => {
       Deck.findOne.mockResolvedValue(deck);
       const res = mockRes();
 
-      await deckController.removeCard({ params: { deckId: 'd1', cardIndex: '2' } }, res);
+      await deckController.removeCard({ params: { deckId: 'd1', cardIndex: '1' } }, res);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(deck.Cards.map(c => c.Name)).toEqual(['Sol Ring', 'Lightning Bolt']);
+      expect(deck.Cards.map(c => c.Name)).toEqual(['Lightning Bolt', 'Sol Ring']);
       expect(deck.colorIdentity).toEqual(['R']);
       expect(deck.save).toHaveBeenCalled();
     });
