@@ -43,6 +43,22 @@ export class DeckService {
     }
   }
 
+  async addCards(deckId: string, cards: string): Promise<Deck> {
+    const response = await apiService.post<ApiResponse<Deck>>(`/api/deck/${deckId}/cards`, { cards });
+    if (!response.success) {
+      throw new Error('API returned error');
+    }
+    return response.data;
+  }
+
+  async removeCard(deckId: string, cardIndex: number): Promise<Deck> {
+    const response = await apiService.delete<ApiResponse<Deck>>(`/api/deck/${deckId}/card/${cardIndex}`);
+    if (!response.success) {
+      throw new Error('API returned error');
+    }
+    return response.data;
+  }
+
   async deleteDeck(id: string) {
     const response = await apiService.delete<ApiResponse<null>>(`/api/deck/${id}`);
     if (!response.success) {

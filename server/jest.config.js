@@ -8,6 +8,8 @@ module.exports = {
   ],
   transform: {
     '^.+\\.ts$': 'ts-jest',
+    // Source JS uses ES module syntax and is compiled by tsc (allowJs) in production
+    '^.+[\\\\/]src[\\\\/].+\\.js$': ['ts-jest', { diagnostics: false }],
     '^.+\\.js$': 'babel-jest'
   },
   collectCoverageFrom: [

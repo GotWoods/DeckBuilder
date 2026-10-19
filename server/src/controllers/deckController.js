@@ -1,5 +1,5 @@
 import logger from '../config/logger';
-import Deck from '../models/deckSchema';
+import Deck, { parseDeckLines } from '../models/deckSchema';
 const deckQueue = require('../utils/deckQueue');
 
 const getAll = async (req, res) => {
@@ -365,6 +365,143 @@ const substituteCard = async (req, res) => {
   }
 };
 
+const addCards = async (req, res) => {
+  try {
+    const { deckId } = req.params;
+    const { cards } = req.body;
+    const userId = req.user?.id;
+
+    logger.info(`Adding cards to deck ${deckId} for user: ${userId || 'anonymous'}`);
+
+    const filter = userId ? { _id: deckId, userId } : { _id: deckId };
+    const deck = await Deck.findOne(filter);
+
+    if (!deck) {
+      logger.warn(`Deck with ID ${deckId} not found or access denied`);
+      return res.status(404).json({
+        success: false,
+        error: 'Deck not found'
+      });
+    }
+
+    if (deck.Importing) {
+      return res.status(409).json({
+        success: false,
+        error: 'Deck is currently being processed'
+      });
+    }
+
+    const parsedCards = parseDeckLines(typeof cards === 'string' ? cards : '');
+    if (parsedCards.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid card lines provided'
+      });
+    }
+
+    // Cards already in the deck get their quantity bumped; new ones are appended unpriced
+    let newCardCount = 0;
+    parsedCards.forEach(card => {
+      const existing = deck.Cards.find(c => c.Name.toLowerCase() === card.Name.toLowerCase());
+      if (existing) {
+        existing.Quantity += card.Quantity;
+      } else {
+        deck.Cards.push(card);
+        newCardCount++;
+      }
+    });
+
+    let jobId = null;
+    if (newCardCount > 0) {
+      deck.Importing = true;
+    }
+    await deck.save();
+
+    if (newCardCount > 0) {
+      const job = await deckQueue.add('processDeck', {
+        deckId,
+        onlyUnpriced: true
+      }, {
+        attempts: 3,
+        backoff: 'exponential',
+        delay: 1000
+      });
+      jobId = job.id;
+    }
+
+    logger.info(`Added ${parsedCards.length} card lines (${newCardCount} new) to deck ${deckId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Cards added successfully',
+      data: deck,
+      jobId
+    });
+
+  } catch (error) {
+    logger.error('Error adding cards:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add cards'
+    });
+  }
+};
+
+const removeCard = async (req, res) => {
+  try {
+    const { deckId, cardIndex } = req.params;
+    const userId = req.user?.id;
+
+    logger.info(`Removing card ${cardIndex} from deck ${deckId} for user: ${userId || 'anonymous'}`);
+
+    const filter = userId ? { _id: deckId, userId } : { _id: deckId };
+    const deck = await Deck.findOne(filter);
+
+    if (!deck) {
+      logger.warn(`Deck with ID ${deckId} not found or access denied`);
+      return res.status(404).json({
+        success: false,
+        error: 'Deck not found'
+      });
+    }
+
+    // Indexes shift on removal, which would misplace pricing the worker is writing
+    if (deck.Importing) {
+      return res.status(409).json({
+        success: false,
+        error: 'Deck is currently being processed'
+      });
+    }
+
+    const cardIdx = parseInt(cardIndex);
+    if (isNaN(cardIdx) || cardIdx < 0 || cardIdx >= deck.Cards.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid card index'
+      });
+    }
+
+    const [removed] = deck.Cards.splice(cardIdx, 1);
+    deck.colorIdentity = [...new Set(deck.Cards.flatMap(card => card.colorIdentity || []))].sort();
+    await deck.save();
+
+    logger.info(`Removed "${removed.Name}" from deck ${deckId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Card removed successfully',
+      data: deck
+    });
+
+  } catch (error) {
+    logger.error('Error removing card:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to remove card'
+    });
+  }
+};
+
 const resetImportStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -412,5 +549,7 @@ export default {
   updateSelectedPricing,
   deleteDeck,
   substituteCard,
+  addCards,
+  removeCard,
   resetImportStatus
 };
