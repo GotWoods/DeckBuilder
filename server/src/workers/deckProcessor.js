@@ -161,7 +161,7 @@ logger.info('Setting up Bull queue processor...');
 deckQueue.process('processDeck', async (job) => {
   logger.info('>>> JOB PROCESSOR FUNCTION CALLED <<<');
   try {
-    const { deckId } = job.data;
+    const { deckId, onlyUnpriced } = job.data;
     logger.info(`Processing deck: ${deckId}`);
     
     // Find the deck in the database
@@ -172,9 +172,9 @@ deckQueue.process('processDeck', async (job) => {
     
     logger.info(`Found deck with ${deck.Cards.length} cards`);
 
-    // Filter out purchased cards before processing
-    const unpurchasedCards = deck.Cards.filter(card => !card.purchased);
-    logger.info(`Filtering to ${unpurchasedCards.length} unpurchased cards (skipping ${deck.Cards.length - unpurchasedCards.length} purchased cards)`);
+    // Filter out purchased cards, and already-priced ones when only newly added cards need pricing
+    const unpurchasedCards = deck.Cards.filter(card => !card.purchased && !(onlyUnpriced && card.pricing?.processedAt));
+    logger.info(`Filtering to ${unpurchasedCards.length} cards to price (skipping ${deck.Cards.length - unpurchasedCards.length} purchased${onlyUnpriced ? ' or already priced' : ''} cards)`);
 
     // Publish start event
     await publishStart(deck.userId, deckId, unpurchasedCards.length);

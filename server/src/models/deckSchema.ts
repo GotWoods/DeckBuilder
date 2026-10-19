@@ -37,40 +37,54 @@ const deckSchema = new Schema({
   }
 });
 
-deckSchema.methods.import = function(this: IDeck, importData: string): void {
-  this.Importing = true;
-  const lines = importData.split('\n');
+// Strips export decorations from a deck line's name, e.g. "Last Breath (2X2) 15 *F*" -> "Last Breath"
+export const cleanCardName = (raw: string): string => {
+  let cardName = raw;
 
-  lines.forEach(element => {
-    if (element.trim()) {
-      const parts = element.split(" ");
-      if (parts.length < 2)
-        return;
+  // Remove trailing finish markers like "*F*" (foil) or "*E*" (etched)
+  cardName = cardName.replace(/(\s*\*[A-Z]+\*)+\s*$/i, '');
 
-      // Join the name parts and clean up collection codes
-      let cardName = parts.slice(1).join(' ');
+  // Remove collection code and number at the end
+  // Matches patterns like "(SLD) 433", "(BRO) 123", "(PLST) MH1-188", "(PLST) WOE-267", etc.
+  cardName = cardName.replace(/\s*\([A-Z0-9]{2,5}\)\s*[A-Z0-9][A-Z0-9-]*\s*$/, '');
 
-      // Remove collection code and number at the end
-      // Matches patterns like "(SLD) 433", "(BRO) 123", "(PLST) MH1-188", "(PLST) WOE-267", etc.
-      cardName = cardName.replace(/\s*\([A-Z0-9]{2,5}\)\s*[A-Z0-9][A-Z0-9-]*\s*$/, '');
+  // Also handle cases where there might just be a number at the end
+  cardName = cardName.replace(/\s+\d+\s*$/, '');
 
-      // Also handle cases where there might just be a number at the end
-      cardName = cardName.replace(/\s+\d+\s*$/, '');
+  return cardName.trim();
+};
 
-      // Trim any extra whitespace
-      cardName = cardName.trim();
+// Parses "<qty> <name>" lines into cards, skipping blank or malformed lines
+export const parseDeckLines = (importData: string): ICard[] => {
+  const cards: ICard[] = [];
 
-      if (cardName) {
-        this.Cards.push({
-          Quantity: parseInt(parts[0]),
-          Name: cardName
-        } as ICard);
-      }
+  importData.split('\n').forEach(element => {
+    const parts = element.trim().split(/\s+/);
+    if (parts.length < 2)
+      return;
+
+    const quantity = parseInt(parts[0]);
+    const cardName = cleanCardName(parts.slice(1).join(' '));
+
+    if (quantity > 0 && cardName) {
+      cards.push({
+        Quantity: quantity,
+        Name: cardName
+      } as ICard);
     }
   });
+
+  return cards;
+};
+
+deckSchema.methods.import = function(this: IDeck, importData: string): void {
+  this.Importing = true;
+  parseDeckLines(importData).forEach(card => this.Cards.push(card));
 };
 
 const DeckModel = mongoose.model<IDeck>('Deck', deckSchema);
 
 export default DeckModel;
 module.exports = DeckModel;
+module.exports.cleanCardName = cleanCardName;
+module.exports.parseDeckLines = parseDeckLines;

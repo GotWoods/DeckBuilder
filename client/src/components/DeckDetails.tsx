@@ -30,6 +30,11 @@ const DeckDetails: React.FC = () => {
     progress: 0
   });
   const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('Copied to clipboard');
+  const [showAddCards, setShowAddCards] = useState(false);
+  const [addCardsText, setAddCardsText] = useState('');
+  const [addCardsError, setAddCardsError] = useState<string | null>(null);
+  const [addingCards, setAddingCards] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [alternateModalCard, setAlternateModalCard] = useState<{ name: string; index: number } | null>(null);
   // Card/vendor pairs ("cardIndex-vendor") showing all results instead of the cheapest few
@@ -172,8 +177,6 @@ const DeckDetails: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-
   const processCardPricing = (deck: Deck): Deck => {
     return {
       ...deck,
@@ -205,6 +208,7 @@ const DeckDetails: React.FC = () => {
     };
   };
 
+  useEffect(() => {
   const fetchDeck = async () => {
       if (!deckId) {
         setError('No deck ID provided');
@@ -374,6 +378,43 @@ const DeckDetails: React.FC = () => {
     }
   };
 
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setToastVisible(true);
+  };
+
+  const handleAddCards = async () => {
+    if (!deckId || !addCardsText.trim()) return;
+
+    try {
+      setAddingCards(true);
+      setAddCardsError(null);
+      const updated = await deckService.addCards(deckId, addCardsText);
+      setDeck(processCardPricing(updated));
+      setAddCardsText('');
+      setShowAddCards(false);
+      showToast('Cards added');
+    } catch (err) {
+      setAddCardsError('Failed to add cards. Use one "<quantity> <card name>" per line.');
+    } finally {
+      setAddingCards(false);
+    }
+  };
+
+  const handleRemoveCard = async (cardIndex: number) => {
+    if (!deckId || !deck) return;
+    if (!window.confirm(`Remove ${deck.Cards[cardIndex].Name} from this deck?`)) return;
+
+    try {
+      const updated = await deckService.removeCard(deckId, cardIndex);
+      setDeck(processCardPricing(updated));
+      showToast('Card removed');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to remove card';
+      setError(errorMessage);
+    }
+  };
+
   const handleFindAlternates = (cardIndex: number) => {
     const card = deck?.Cards[cardIndex];
     if (!card) return;
@@ -410,7 +451,7 @@ const DeckDetails: React.FC = () => {
       handleCloseAlternatesModal();
 
       // Show success toast
-      setToastVisible(true);
+      showToast('Card substituted');
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to substitute card';
@@ -443,7 +484,7 @@ const DeckDetails: React.FC = () => {
   return (
     <>
       <Toast
-        message="Copied to clipboard"
+        message={toastMessage}
         isVisible={toastVisible}
         onClose={() => setToastVisible(false)}
       />
@@ -586,6 +627,17 @@ const DeckDetails: React.FC = () => {
       <div style={styles.cardList}>
         <div style={styles.cardListHeader}>
           <h2>Cards</h2>
+          <button
+            onClick={() => setShowAddCards(!showAddCards)}
+            disabled={progress.active || deck.Importing}
+            style={{
+              ...styles.createDeckListsButton,
+              marginTop: 0,
+              ...(progress.active || deck.Importing ? styles.refreshButtonDisabled : {})
+            }}
+          >
+            {showAddCards ? 'Cancel' : '+ Add Cards'}
+          </button>
           <div style={styles.toggleContainer}>
             <label style={styles.toggleLabel}>
               <div
@@ -612,6 +664,29 @@ const DeckDetails: React.FC = () => {
             </label>
           </div>
         </div>
+        {showAddCards && (
+          <div style={styles.addCardsPanel}>
+            <textarea
+              value={addCardsText}
+              onChange={(e) => setAddCardsText(e.target.value)}
+              placeholder={'1 Sol Ring\n2 Lightning Bolt (2X2) 117'}
+              rows={5}
+              style={styles.addCardsTextarea}
+            />
+            {addCardsError && <div style={styles.addCardsError}>{addCardsError}</div>}
+            <button
+              onClick={handleAddCards}
+              disabled={addingCards || !addCardsText.trim()}
+              style={{
+                ...styles.purchasedButton,
+                alignSelf: 'flex-start',
+                ...(addingCards || !addCardsText.trim() ? styles.refreshButtonDisabled : {})
+              }}
+            >
+              {addingCards ? 'Adding...' : 'Add to Deck'}
+            </button>
+          </div>
+        )}
         {deck.Cards.map((card, index) => (
           <div key={index} style={styles.cardItem}>
             <div style={styles.cardHeader}>
@@ -643,6 +718,15 @@ const DeckDetails: React.FC = () => {
                       style={styles.purchasedButton}
                     >
                       ☐ Purchased
+                    </button>
+                  )}
+                  {!deck.Importing && (
+                    <button
+                      onClick={() => handleRemoveCard(index)}
+                      style={styles.removeCardButton}
+                      title={`Remove ${card.Name}`}
+                    >
+                      ✕
                     </button>
                   )}
                 </div>
@@ -1018,6 +1102,35 @@ const styles = {
     color: '#6c757d',
     marginLeft: '15px',
     whiteSpace: 'nowrap' as const,
+  },
+  addCardsPanel: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '8px',
+    marginBottom: '20px',
+  },
+  addCardsTextarea: {
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    padding: '8px',
+    fontFamily: 'monospace',
+    fontSize: '13px',
+    border: '1px solid #ced4da',
+    borderRadius: '4px',
+  },
+  addCardsError: {
+    color: '#dc3545',
+    fontSize: '13px',
+  },
+  removeCardButton: {
+    backgroundColor: 'transparent',
+    color: '#dc3545',
+    border: '1px solid #dc3545',
+    padding: '6px 10px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 'bold',
   },
   cardActions: {
     marginLeft: '15px',
